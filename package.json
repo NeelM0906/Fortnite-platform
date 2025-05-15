@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "fortnite-api-io": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "puppeteer": "^24.8.2"
   }
 }
