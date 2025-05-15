@@ -1,163 +1,440 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import Plot from "react-plotly.js";
+import { useRouter } from "next/navigation";
+import { supabase, signOut } from "../../utils/supabaseClient";
+import ProfileForm from "../../components/ProfileForm";
+import MapSearchForm from "../../components/MapSearchForm";
+import IslandDetails from "../../components/IslandDetails";
+import FortniteStatsCard from "../../components/FortniteStatsCard";
+import PlayerStatsChart from "../../components/PlayerStatsChart";
+import PredictionResults from "../../components/PredictionResults";
+import useProfile from "../../hooks/useProfile";
+import useFortniteData from "../../hooks/useFortniteData";
+import { ProfileFormData, IslandData, PlayerStat, TableData } from "../../types";
+import DatabaseInitializer from "../../components/DatabaseInitializer";
 
 export default function DashboardPage() {
-  const supabase = createClientComponentClient();
-  const [profile, setProfile] = useState<any>(null);
-  const [profileForm, setProfileForm] = useState({ username: "", name: "", dob: "", email: "" });
-  const [profileMsg, setProfileMsg] = useState("");
-  const [mapCode, setMapCode] = useState("");
-  const [scrape, setScrape] = useState<any>(null);
-  const [scrapeMsg, setScrapeMsg] = useState("");
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("search");
+  
+  // Initialize custom hooks
+  const fortniteData = useFortniteData();
+  const { profile, isLoading: profileLoading, isSaving: profileSaving, 
+          error: profileError, successMessage: profileSuccess, updateProfile } = 
+    useProfile({ 
+      userId: user?.id || '', 
+      onError: (msg) => console.error("Profile error:", msg) 
+    });
 
-  // Fetch profile on mount
+  // Check if user is authenticated
   useEffect(() => {
-    fetch("/api/profile")
-      .then(r => r.json())
-      .then(res => {
-        if (res.profile) {
-          setProfile(res.profile);
-          setProfileForm({
-            username: res.profile.username || "",
-            name: res.profile.name || "",
-            dob: res.profile.dob || "",
-            email: res.profile.email || ""
-          });
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          router.push("/auth");
+          return;
         }
+        
+        setUser(session.user);
+      } catch (error) {
+        console.log('Session check error:', error);
+        router.push("/auth");
+      }
+    };
+    
+    checkUser();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        window.location.href = "/auth";
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [router]);
+
+  // Handle sign out
+  async function handleSignOut() {
+    try {
+      await signOut();
+      window.location.href = "/auth";
+    } catch (error) {
+      console.log('Sign out exception:', error);
+      window.location.href = "/auth";
+    }
+  }
+
+  // Handle profile update
+  async function handleProfileUpdate(formData: ProfileFormData): Promise<boolean> {
+    if (!user) return false;
+    return await updateProfile(formData);
+  }
+
+  // Process player stats into a format for the FortniteStatsCard component
+  function getPlayerStats(): PlayerStat[] {
+    if (!fortniteData.scrapeData || !fortniteData.scrapeData[0] || !fortniteData.scrapeData[0].player_stats) {
+      return [];
+    }
+    
+    return fortniteData.scrapeData[0].player_stats.map((stat: any) => ({
+      stat_label: stat.stat_label || "Unknown Stat",
+      stat_value: stat.stat_value || "N/A"
+    }));
+  }
+
+  // Get the table data for the chart
+  function getTableData(): TableData {
+    if (!fortniteData.scrapeData || !fortniteData.scrapeData[0]) {
+      return { header: [], rows: [] };
+    }
+    
+    // If table_data is already available, use it
+    if (fortniteData.scrapeData[0].table_data) {
+      return fortniteData.scrapeData[0].table_data;
+    }
+    
+    // If we have table_rows, convert them to the format needed for the chart
+    if (fortniteData.scrapeData[0].table_rows && fortniteData.scrapeData[0].table_rows.length > 0) {
+      // Get column headers from first row object keys
+      const keys = Object.keys(fortniteData.scrapeData[0].table_rows[0]);
+      
+      // Create rows data
+      const rows = fortniteData.scrapeData[0].table_rows.map((row: Record<string, string>) => {
+        return keys.map(key => row[key]);
       });
-  }, []);
-
-  // Handle profile form change
-  function handleProfileChange(e: any) {
-    setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
-  }
-
-  // Update profile
-  async function updateProfile(e: any) {
-    e.preventDefault();
-    setProfileMsg("");
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profileForm)
-    });
-    const data = await res.json();
-    if (data.profile) {
-      setProfile(data.profile);
-      setProfileMsg("Profile updated!");
-    } else {
-      setProfileMsg(data.error || "Failed to update profile");
+      
+      return {
+        header: keys,
+        rows
+      };
     }
+    
+    return { header: [], rows: [] };
   }
 
-  // Handle map code submit
-  async function handleScrape(e: any) {
-    e.preventDefault();
-    setScrapeMsg("");
-    setLoading(true);
-    setScrape(null);
-    const res = await fetch("/api/scrape", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapCode })
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (data.data) {
-      setScrape(data.data);
-    } else {
-      setScrapeMsg(data.error || "Failed to fetch map data");
+  // Get the island data
+  function getIslandData(): IslandData {
+    if (!fortniteData.scrapeData || !fortniteData.scrapeData[0]) {
+      return {};
     }
+    
+    return {
+      title: fortniteData.scrapeData[0].title,
+      code: fortniteData.scrapeData[0].code,
+      creator: fortniteData.scrapeData[0].creator,
+      description: fortniteData.scrapeData[0].description,
+      tags: fortniteData.scrapeData[0].tags,
+      creator_code: fortniteData.scrapeData[0].creator_code,
+      published_date: fortniteData.scrapeData[0].published_date,
+      version: fortniteData.scrapeData[0].version
+    };
   }
 
-  // Extract chart/table data
-  let chart = null, table = null, stats = null, meta = null;
-  if (scrape) {
-    const d = Array.isArray(scrape) ? scrape[0] : scrape;
-    meta = d;
-    stats = d.player_stats;
-    const tableRows = d.table_rows || [];
-    const times = tableRows.map((r: any) => r.time);
-    const peaks = tableRows.map((r: any) => parseInt((r.peak||'0').replace(/,/g, '')));
-    const avgs = tableRows.map((r: any) => parseInt((r.average||'0').replace(/,/g, '')));
-    chart = (
-      <Plot
-        data={[
-          { x: times, y: peaks, type: 'scatter', mode: 'lines+markers', name: 'Peak' },
-          { x: times, y: avgs, type: 'scatter', mode: 'lines+markers', name: 'Average' }
-        ]}
-        layout={{ title: 'Player Count Over Time', xaxis: { title: 'Time' }, yaxis: { title: 'Players' } }}
-        style={{ width: '100%', height: 400 }}
-      />
-    );
-    table = (
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-        <thead>
-          <tr>
-            <th>Time</th><th>Peak</th><th>Average</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tableRows.map((r: any, i: number) => (
-            <tr key={i}>
-              <td>{r.time}</td>
-              <td>{r.peak}</td>
-              <td>{r.average}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+  // Render initial profile data that will be passed to ProfileForm
+  function getInitialProfileData(): ProfileFormData {
+    if (profile) {
+      return {
+        display_name: profile.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "",
+        bio: profile.bio || ""
+      };
+    }
+    
+    return {
+      display_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || "",
+      bio: ""
+    };
   }
 
   return (
-    <div style={{ maxWidth: 700, margin: "auto", padding: 32 }}>
-      <h2>Dashboard</h2>
-      <h3>Profile</h3>
-      <form onSubmit={updateProfile} style={{ marginBottom: 24 }}>
-        <input name="name" placeholder="Name" value={profileForm.name} onChange={handleProfileChange} style={{ marginRight: 8 }} />
-        <input name="dob" placeholder="Date of Birth" value={profileForm.dob} onChange={handleProfileChange} style={{ marginRight: 8 }} />
-        <input name="username" placeholder="Username" value={profileForm.username} onChange={handleProfileChange} style={{ marginRight: 8 }} />
-        <input name="email" placeholder="Email" value={profileForm.email} onChange={handleProfileChange} style={{ marginRight: 8 }} />
-        <button type="submit">Update</button>
-      </form>
-      {profileMsg && <div style={{ color: 'green', marginBottom: 16 }}>{profileMsg}</div>}
-      <h3>Scrape Fortnite Map</h3>
-      <form onSubmit={handleScrape} style={{ marginBottom: 24 }}>
-        <input name="mapCode" placeholder="Map Code" value={mapCode} onChange={e => setMapCode(e.target.value)} style={{ marginRight: 8 }} />
-        <button type="submit" disabled={loading}>{loading ? 'Loading...' : 'Fetch'}</button>
-      </form>
-      {scrapeMsg && <div style={{ color: 'red', marginBottom: 16 }}>{scrapeMsg}</div>}
-      {meta && (
-        <div style={{ marginBottom: 24 }}>
-          <h4>Map Info</h4>
-          <ul>
-            <li><b>Code:</b> {meta.code}</li>
-            <li><b>Title:</b> {meta.title}</li>
-            <li><b>Description:</b> {meta.description}</li>
-            <li><b>Creator:</b> {meta.creator}</li>
-            <li><b>Creator Code:</b> {meta.creator_code || meta.creatorCode}</li>
-            <li><b>Published Date:</b> {meta.published_date || meta.publishedDate}</li>
-            <li><b>Tags:</b> {(meta.tags || []).join(', ')}</li>
-            <li><b>Version:</b> {meta.version}</li>
-          </ul>
+    <div className="dashboard-container">
+      <DatabaseInitializer />
+      
+      <header className="dashboard-header">
+        <div className="logo-container">
+          <h1>Fortnite Analyzer</h1>
         </div>
-      )}
-      {stats && (
-        <div style={{ marginBottom: 24 }}>
-          <h4>Player Stats</h4>
-          <ul>
-            {stats.map((s: any, i: number) => (
-              <li key={i}><b>{s.stat_label}:</b> {s.stat_value}</li>
-            ))}
-          </ul>
+        <div className="user-container">
+          <span className="username">{profile?.display_name || user?.email?.split('@')[0]}</span>
+          <button onClick={handleSignOut} className="sign-out-btn">Sign Out</button>
         </div>
-      )}
-      {chart}
-      {table}
+      </header>
+      
+      <div className="tab-container">
+        <button 
+          className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}
+          onClick={() => setActiveTab('search')}
+        >
+          Island Search
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          Profile
+        </button>
+      </div>
+      
+      <main className="dashboard-content">
+        {activeTab === 'search' ? (
+          <div className="search-tab">
+            <section className="search-section">
+              <h2>Search for a Fortnite Island</h2>
+              <p>Enter a Fortnite island code to analyze its player stats and get recommendations</p>
+              
+              <MapSearchForm 
+                onSubmit={fortniteData.fetchMapData} 
+                loading={fortniteData.isLoading} 
+                errorMessage={fortniteData.error} 
+              />
+            </section>
+            
+            {fortniteData.scrapeData && fortniteData.scrapeData[0] && (
+              <>
+                <section className="results-section">
+                  <IslandDetails islandData={getIslandData()} />
+                  
+                  <FortniteStatsCard 
+                    title="Player Statistics" 
+                    stats={getPlayerStats()} 
+                  />
+                  
+                  <PlayerStatsChart tableData={getTableData()} />
+                </section>
+                
+                <section className="predictions-section">
+                  <div className="prediction-header">
+                    <h2>Player Count Predictions</h2>
+                    {!fortniteData.predictions && !fortniteData.isPredicting && (
+                      <button 
+                        onClick={() => {
+                          console.log("Generating predictions...");
+                          fortniteData.generatePredictions();
+                        }} 
+                        className="generate-btn"
+                        disabled={fortniteData.isPredicting}
+                      >
+                        {fortniteData.isPredicting ? 'Generating...' : 'Generate Predictions'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {fortniteData.isPredicting && (
+                    <div className="prediction-loading">
+                      <p>Generating predictions...</p>
+                    </div>
+                  )}
+                  
+                  {fortniteData.error && !fortniteData.isLoading && (
+                    <div className="prediction-error">
+                      <p>{fortniteData.error}</p>
+                    </div>
+                  )}
+                  
+                  {fortniteData.predictions && (
+                    <>
+                      <PredictionResults predictions={fortniteData.predictions} />
+                      <div className="regenerate-container">
+                        <button
+                          onClick={() => {
+                            console.log("Regenerating predictions...");
+                            fortniteData.generatePredictions();
+                          }}
+                          className="regenerate-btn"
+                          disabled={fortniteData.isPredicting}
+                        >
+                          {fortniteData.isPredicting ? 'Regenerating...' : 'Regenerate Predictions'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="profile-tab">
+            <section className="profile-section">
+              <h2>Your Profile</h2>
+              <p>Manage your profile information</p>
+              
+              {user && (
+                <ProfileForm 
+                  initialData={getInitialProfileData()} 
+                  userId={user.id}
+                  onUpdate={handleProfileUpdate}
+                  isLoading={profileLoading || profileSaving}
+                  errorMessage={profileError}
+                  successMessage={profileSuccess}
+                />
+              )}
+            </section>
+          </div>
+        )}
+      </main>
+      
+      <style jsx>{`
+        .dashboard-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        
+        .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 0;
+          margin-bottom: 24px;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .logo-container h1 {
+          margin: 0;
+          font-size: 1.8rem;
+          color: #4285f4;
+        }
+        
+        .user-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        
+        .username {
+          font-weight: 500;
+        }
+        
+        .sign-out-btn {
+          padding: 8px 16px;
+          background-color: transparent;
+          color: #d93025;
+          border: 1px solid #d93025;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .sign-out-btn:hover {
+          background-color: #fce8e6;
+        }
+        
+        .tab-container {
+          display: flex;
+          margin-bottom: 24px;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .tab-button {
+          padding: 12px 24px;
+          background-color: transparent;
+          border: none;
+          border-bottom: 3px solid transparent;
+          font-size: 16px;
+          font-weight: 500;
+          color: #555;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .tab-button.active {
+          color: #4285f4;
+          border-bottom-color: #4285f4;
+        }
+        
+        .dashboard-content {
+          min-height: 500px;
+        }
+        
+        .search-section,
+        .profile-section {
+          margin-bottom: 32px;
+        }
+        
+        h2 {
+          margin-top: 0;
+          margin-bottom: 8px;
+          color: #333;
+        }
+        
+        p {
+          margin-top: 0;
+          margin-bottom: 16px;
+          color: #666;
+        }
+        
+        .prediction-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        
+        .generate-btn {
+          padding: 10px 20px;
+          background-color: #34a853;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .generate-btn:hover:not(:disabled) {
+          background-color: #2d9249;
+        }
+        
+        .generate-btn:disabled {
+          background-color: #a3d9b1;
+          cursor: not-allowed;
+        }
+        
+        .prediction-loading {
+          text-align: center;
+          padding: 40px;
+          background-color: #f8f9fa;
+          border-radius: 8px;
+        }
+        
+        .prediction-error {
+          padding: 16px;
+          background-color: #fce8e6;
+          color: #d93025;
+          border-radius: 8px;
+          margin-bottom: 16px;
+        }
+        
+        .regenerate-container {
+          display: flex;
+          justify-content: center;
+          margin-top: -12px;
+          margin-bottom: 24px;
+        }
+        
+        .regenerate-btn {
+          padding: 8px 16px;
+          background-color: #5f6368;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .regenerate-btn:hover:not(:disabled) {
+          background-color: #4a4d51;
+        }
+        
+        .regenerate-btn:disabled {
+          background-color: #d5d7d8;
+          cursor: not-allowed;
+        }
+      `}</style>
     </div>
   );
 }

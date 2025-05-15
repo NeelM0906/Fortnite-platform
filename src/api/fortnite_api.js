@@ -5,16 +5,16 @@
  * Accepts a map code as a CLI argument and prints only the requested fields.
  *
  * Usage:
- *   node fortnite_island_data.js <map_code>
- *   # or just
- *   node fortnite_island_data.js
- *   # (then uses default codes)
+ *   node src/api/fortnite_api.js <map_code>
+ *   # or import and use getIslandData function
  *
  * External dependencies: fortnite-api-io (npm)
  */
 
 const FortniteAPI = require("fortnite-api-io");
 require('dotenv').config();
+const fs = require('fs').promises;
+const path = require('path');
 
 // --- Configuration ---
 // API Key for fortniteapi.io. For production, use environment variables.
@@ -84,6 +84,26 @@ async function processIslandCodes(codes) {
 }
 
 /**
+ * Save island data to a file
+ * @async
+ * @param {object} data - The island data to save
+ * @param {string} outputPath - Path to save the data
+ */
+async function saveIslandData(data, outputPath = 'output/island_data.json') {
+    try {
+        // Ensure output directory exists
+        const dir = path.dirname(outputPath);
+        await fs.mkdir(dir, { recursive: true });
+        
+        // Write the data
+        await fs.writeFile(outputPath, JSON.stringify(data, null, 2));
+        console.log(`Island data saved to ${outputPath}`);
+    } catch (error) {
+        console.error(`Error saving island data: ${error.message}`);
+    }
+}
+
+/**
  * Main function to orchestrate the script's execution.
  * Accepts code(s) from CLI, falls back to default list if none provided.
  * Prints only the requested fields for a single code, or all for multiple.
@@ -103,18 +123,41 @@ async function main() {
         ];
     }
     const results = await processIslandCodes(islandCodes);
+    
+    // Create output directory if needed
+    try {
+        await fs.mkdir('output', { recursive: true });
+    } catch (error) {
+        // Ignore if directory already exists
+    }
+    
     if (islandCodes.length === 1) {
         const code = islandCodes[0];
         console.log(JSON.stringify(results[code], null, 2));
+        
+        // Save to file if it's a single result
+        await saveIslandData(results[code], 'output/island_data.json');
     } else {
         console.info("\nFinal Results (JSON):");
         console.log(JSON.stringify(results, null, 2));
+        
+        // Save to file
+        await saveIslandData(results, 'output/islands_data.json');
     }
     console.info("\nFortnite Island Data Fetcher (JavaScript) finished.");
 }
 
+// Export functions for use as a module
+module.exports = {
+    getIslandData,
+    processIslandCodes,
+    saveIslandData
+};
+
 // --- Script Execution ---
-main().catch(err => {
-    console.error("A fatal error occurred in the main execution flow:", err);
-    process.exitCode = 1;
-}); 
+if (require.main === module) {
+    main().catch(err => {
+        console.error("A fatal error occurred in the main execution flow:", err);
+        process.exitCode = 1;
+    });
+} 

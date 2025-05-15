@@ -3,26 +3,61 @@ __pycache__/
 *.py[cod]
 *$py.class
 .venv/
+venv/
+ENV/
+env/
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Node.js
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-package-lock.json # Usually committed, but if you prefer not to, add it here
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js
+.next/
+out/
 
 # Output files
 output/
+result.txt
+predictions.json
 *.log
 
-# Image files (if any remain or are generated)
-*.png
-*.jpeg
-*.jpg
-*.gif
+# Debug files
+debug-*.png
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
 
 # OS generated files
 .DS_Store
@@ -31,4 +66,19 @@ output/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db 
+Thumbs.db
+
+# Browser data
+user_data_dir/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Image files (if any remain or are generated)
+*.png
+*.jpeg
+*.jpg
+*.gif 

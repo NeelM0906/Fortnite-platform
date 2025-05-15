@@ -1,64 +1,132 @@
-import { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
+import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { supabase } from '@/utils/supabaseClient';
 
 /**
  * GET /api/profile
- * Returns the authenticated user's profile from Supabase Postgres.
+ * Retrieves the current user's profile data
  */
 export async function GET(req: NextRequest) {
-  // Create a Supabase client with the user's cookies
-  const supabaseServer = createServerClient({ req, cookies });
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseServer.auth.getUser();
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  try {
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ 
+        error: 'Unauthorized', 
+        message: 'You must be logged in to access your profile'
+      }, { status: 401 });
+    }
+    
+    // Get profile data
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Profile not found for this user, return empty profile
+        return NextResponse.json({
+          id: user.id,
+          display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+          bio: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+      
+      console.error('Profile fetch error:', error);
+      return NextResponse.json({ 
+        error: 'Database error', 
+        message: error.message 
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json(data);
+  } catch (err: any) {
+    console.error('Profile API error:', err);
+    return NextResponse.json({ 
+      error: 'Server error', 
+      message: err.message || 'Unknown error occurred'
+    }, { status: 500 });
   }
-  // Fetch profile from 'profiles' table
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-  return new Response(JSON.stringify({ profile: data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
 /**
  * POST /api/profile
- * Updates the authenticated user's profile in Supabase Postgres.
- * Body: { username?: string, ... }
+ * Updates the current user's profile data
  */
 export async function POST(req: NextRequest) {
-  const supabaseServer = createServerClient({ req, cookies });
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseServer.auth.getUser();
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  try {
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    // Get the profile data from the request
+    const profileData = await req.json();
+    
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json({ 
+        error: 'Unauthorized', 
+        message: 'You must be logged in to update your profile'
+      }, { status: 401 });
+    }
+    
+    // Validate data
+    if (!profileData.display_name) {
+      return NextResponse.json({ 
+        error: 'Invalid data', 
+        message: 'Display name is required'
+      }, { status: 400 });
+    }
+    
+    if (profileData.bio && profileData.bio.length > 200) {
+      return NextResponse.json({ 
+        error: 'Invalid data', 
+        message: 'Bio must be 200 characters or less'
+      }, { status: 400 });
+    }
+    
+    // Build update object
+    const updates = {
+      id: user.id,
+      display_name: profileData.display_name,
+      bio: profileData.bio || '',
+      updated_at: new Date().toISOString()
+    };
+    
+    // Update profile
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(updates, { onConflict: 'id' })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Profile update error:', error);
+      return NextResponse.json({ 
+        error: 'Database error', 
+        message: error.message 
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data
+    });
+  } catch (err: any) {
+    console.error('Profile API error:', err);
+    return NextResponse.json({ 
+      error: 'Server error', 
+      message: err.message || 'Unknown error occurred'
+    }, { status: 500 });
   }
-  const body = await req.json();
-  // Only allow updating certain fields
-  const updateFields: any = {};
-  if (body.username) updateFields.username = body.username;
-  // Add more fields as needed
-  if (Object.keys(updateFields).length === 0) {
-    return new Response(JSON.stringify({ error: 'No valid fields to update' }), { status: 400 });
-  }
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updateFields)
-    .eq('id', user.id)
-    .select()
-    .single();
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-  return new Response(JSON.stringify({ profile: data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
