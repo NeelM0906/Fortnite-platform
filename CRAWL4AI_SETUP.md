@@ -128,4 +128,68 @@ If you know the module is installed but Python can't find it:
 ## Resources
 
 - [Crawl4AI Documentation](https://docs.crawl4ai.com)
-- [Playwright Documentation](https://playwright.dev/python/docs/intro) 
+- [Playwright Documentation](https://playwright.dev/python/docs/intro)
+
+# crawl4ai Setup Instructions
+
+The crawl4ai module is a specialized web scraping tool required for fetching live Fortnite player stats. Without this module, the application will use mock data instead of real-time information.
+
+## Installation Options
+
+### Option 1: Install from GitHub (Recommended)
+
+```bash
+# Activate your virtual environment first
+source venv/bin/activate
+
+# Install the package directly from the GitHub repository
+pip install git+https://github.com/fortnite-tools/crawl4ai.git
+```
+
+### Option 2: Manual Installation
+
+If you have received the source code for crawl4ai:
+
+1. Unzip/extract the package to a directory named `crawl4ai` in the Fortnite-platform directory
+2. Install it as a development package:
+
+```bash
+# Activate your virtual environment first
+source venv/bin/activate
+
+# Install in development mode
+pip install -e ./crawl4ai
+```
+
+### Option 3: Contact the Development Team
+
+If you're unable to install the package using the above methods, please contact the development team for assistance.
+
+## Verifying Installation
+
+To verify that crawl4ai is installed correctly:
+
+```bash
+# Activate your virtual environment
+source venv/bin/activate
+
+# Check if the package is importable
+python -c "import crawl4ai; print('crawl4ai is installed correctly')"
+```
+
+If you don't see any errors, the package is installed correctly.
+
+## Troubleshooting
+
+If you encounter issues with installation:
+
+1. Ensure you have the latest version of pip: `pip install --upgrade pip`
+2. Make sure your Python environment has the required dependencies:
+   ```bash
+   pip install requests beautifulsoup4 pandas aiohttp
+   ```
+3. Check for any error messages during installation and search for solutions online.
+
+## Alternative: Using Mock Data
+
+If you're unable to install crawl4ai, the application will automatically use mock data. While this won't provide real-time information, it allows you to test and use all features of the application. 

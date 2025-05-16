@@ -11,9 +11,9 @@ Usage:
     python flask_analyzer_service.py
 
 Then access via:
-    http://localhost:5002/island_info/<map_code>
-    http://localhost:5002/player_stats/<map_code>
-    http://localhost:5002/full_analysis/<map_code>
+    http://localhost:5003/island_info/<map_code>
+    http://localhost:5003/player_stats/<map_code>
+    http://localhost:5003/full_analysis/<map_code>
 """
 import sys
 import os
@@ -23,9 +23,11 @@ import io
 import base64
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, send_file
+from flask_cors import CORS  # Import CORS module
 
 # Create Flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Ensure output directory exists
 OUTPUT_DIR = "output"
@@ -33,14 +35,41 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # --- Import from existing modules ---
 # From player-data-scrap.py
+CRAWL4AI_AVAILABLE = False
 try:
     from crawl4ai import (
         AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
         JsonCssExtractionStrategy
     )
+    CRAWL4AI_AVAILABLE = True
 except ImportError:
-    print("ERROR: crawl4ai module not found. Please follow the instructions in CRAWL4AI_SETUP.md to install it correctly.")
-    sys.exit(1)
+    print("WARNING: crawl4ai module not found. Using mock data for player stats.")
+    print("To install crawl4ai, follow the instructions in CRAWL4AI_SETUP.md")
+    
+    # Define mock classes to avoid errors
+    class MockCrawler:
+        async def arun(self, **kwargs):
+            class MockResult:
+                def __init__(self):
+                    self.extracted_content = json.dumps([generate_mock_player_data()])
+            return MockResult()
+        
+        async def __aenter__(self):
+            return self
+            
+        async def __aexit__(self, *args):
+            pass
+    
+    class MockConfig:
+        def __init__(self, **kwargs):
+            pass
+    
+    # Create mock versions of the imports
+    AsyncWebCrawler = MockCrawler
+    CrawlerRunConfig = MockConfig
+    BrowserConfig = MockConfig
+    CacheMode = type('Enum', (), {'BYPASS': 'bypass'})
+    JsonCssExtractionStrategy = lambda **kwargs: None
 
 # From player_stats_chart.py
 try:
@@ -75,6 +104,58 @@ def safe_int(val):
         return int(val.replace(',', '').replace('K','000').split()[0])
     except Exception:
         return None
+
+def generate_mock_player_data():
+    """Generate mock player data when crawl4ai is not available"""
+    return {
+        "title": "Mock Island Data",
+        "title_link": "#",
+        "chart_image": "https://example.com/mock-image.jpg",
+        "chart_image_alt": "Mock Chart Image",
+        "player_stats": [
+            {"stat_label": "Players Now", "stat_value": "1,234"},
+            {"stat_label": "Peak Today", "stat_value": "2,345"},
+            {"stat_label": "Peak Ever", "stat_value": "5,678"}
+        ],
+        "chart_ranges": [
+            {"range": "24h"},
+            {"range": "7d"},
+            {"range": "30d"}
+        ],
+        "table_rows": [
+            {
+                "time": "May 2024",
+                "peak": "5,678",
+                "gain": "+1,234",
+                "percent_gain": "+28%",
+                "average": "3,456",
+                "avg_gain": "+987",
+                "avg_percent_gain": "+31%",
+                "estimated_earnings": "$3,400"
+            },
+            {
+                "time": "April 2024",
+                "peak": "4,444",
+                "gain": "+876",
+                "percent_gain": "+15%",
+                "average": "2,469",
+                "avg_gain": "+543",
+                "avg_percent_gain": "+18%",
+                "estimated_earnings": "$2,100"
+            },
+            {
+                "time": "March 2024",
+                "peak": "3,568",
+                "gain": "-",
+                "percent_gain": "-",
+                "average": "1,926",
+                "avg_gain": "-",
+                "avg_percent_gain": "-",
+                "estimated_earnings": "$1,600"
+            }
+        ],
+        "tooltip": "Click and drag to zoom"
+    }
 
 # --- Island Metadata API Functions (from fortnite_island_data_complete.py) ---
 def get_island_data(map_code, api_key=None):
@@ -249,7 +330,17 @@ def scrape_player_data(map_code, output_path=None):
     """
     Scrapes player data from fortnite.gg for the given map code.
     Returns the scraped data as a dictionary.
+    If crawl4ai is not available, returns mock data.
     """
+    if not CRAWL4AI_AVAILABLE:
+        app.logger.info(f"Using mock data for {map_code} (crawl4ai not available)")
+        mock_data = generate_mock_player_data()
+        # Save mock data to file if output_path is provided
+        if output_path:
+            with open(output_path, "w") as f:
+                json.dump([mock_data], f)
+        return [mock_data]
+    
     app.logger.info(f"Scraping Player Stats for {map_code}")
     target_url = f"https://fortnite.gg/island?code={map_code}"
     xpaths_to_keep = [

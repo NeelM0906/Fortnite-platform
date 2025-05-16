@@ -27,50 +27,19 @@ export async function POST(req: NextRequest) {
       // Ignore if directory already exists
     }
 
-    // STEP 1: Run the Python scraper
-    const scriptPath = path.join(rootDir, 'src', 'scrapers', 'island_scraper.py');
-    console.log(`Running Python script at: ${scriptPath}`);
-    
-    // Check if the script exists
-    try {
-      await fs.access(scriptPath);
-    } catch (err) {
-      console.error(`Script not found at ${scriptPath}`);
-      return new Response(JSON.stringify({ error: `Python script not found at ${scriptPath}` }), { status: 500 });
-    }
-    
-    const outputPath = path.join(rootDir, 'output', 'result.txt');
-    const pythonProcess = spawn('python3', ['-m', 'src.scrapers.island_scraper', mapCode], { cwd: rootDir });
-    let stderr = '';
-    let stdout = '';
-    
-    await new Promise((resolve, reject) => {
-      pythonProcess.on('error', (err) => {
-        console.error('Failed to start Python process:', err);
-        reject(err);
-      });
-      
-      pythonProcess.stdout.on('data', (data) => { stdout += data.toString(); });
-      pythonProcess.stderr.on('data', (data) => { stderr += data.toString(); });
-      
-      pythonProcess.on('close', (code) => {
-        console.log(`Python process exited with code ${code}`);
-        if (code !== 0) {
-          console.error('Python stderr:', stderr);
-          reject(new Error(stderr || `Python exited with code ${code}`));
-        } else {
-          resolve(undefined);
-        }
-      });
-    });
-
-    // Read the chart data
-    console.log(`Reading chart data from: ${outputPath}`);
+    // STEP 1: Run the Python Flask service API to get chart data
+    const flaskServiceUrl = 'http://localhost:5003/player_stats/' + mapCode;
+    console.log(`Making request to Flask API at: ${flaskServiceUrl}`);
     
     try {
-      const chartDataContent = await fs.readFile(outputPath, 'utf-8');
-      let chartData = JSON.parse(chartDataContent);
-
+      const response = await fetch(flaskServiceUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Flask API returned status ${response.status}`);
+      }
+      
+      const chartData = await response.json();
+      
       // STEP 2: Run the JS script
       const jsScriptPath = path.join(rootDir, 'src', 'api', 'fortnite_api.js');
       console.log(`Running JS script at: ${jsScriptPath}`);
@@ -109,17 +78,14 @@ export async function POST(req: NextRequest) {
           const mapInfoData = JSON.parse(cleanedOutput[0]);
           
           // Merge the data
-          if (Array.isArray(chartData) && chartData.length > 0) {
-            chartData[0] = {
-              ...chartData[0],
-              code: mapInfoData.code,
-              description: mapInfoData.description,
-              creator: mapInfoData.creator,
-              creator_code: mapInfoData.creatorCode,
-              published_date: mapInfoData.publishedDate,
-              tags: mapInfoData.tags,
-              version: mapInfoData.version
-            };
+          if (chartData && chartData.player_stats) {
+            chartData.code = mapInfoData.code;
+            chartData.description = mapInfoData.description;
+            chartData.creator = mapInfoData.creator;
+            chartData.creator_code = mapInfoData.creatorCode;
+            chartData.published_date = mapInfoData.publishedDate;
+            chartData.tags = mapInfoData.tags;
+            chartData.version = mapInfoData.version;
           }
         } catch (e) {
           console.error('Failed to parse JS output:', e);
@@ -134,9 +100,10 @@ export async function POST(req: NextRequest) {
         status: 200, 
         headers: { 'Content-Type': 'application/json' } 
       });
-    } catch (readError: any) {
+    } catch (flaskError: any) {
+      console.error('Flask API error:', flaskError);
       return new Response(JSON.stringify({ 
-        error: `Failed to read chart data: ${readError.message}` 
+        error: `Failed to get data from Flask service: ${flaskError.message}` 
       }), { status: 500 });
     }
   } catch (err: any) {
