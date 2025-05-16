@@ -8,23 +8,25 @@ A comprehensive toolkit for analyzing Fortnite Creative Islands. This project pr
 - **Web scraping**: Alternative method to extract data directly from fortnite.gg
 - **Data visualization**: Interactive charts showing player count over time
 - **Unified CLI**: Simple command-line interface for all functionality
-- **Next.js integration**: Web interface for viewing island data
 - **Player count predictions**: ML-based predictions of future player counts
 
 ## Installation
 
-### Python Package
+### Python Dependencies
 
 ```bash
-# Clone the repository
-git clone https://github.com/NeelM0906/fortnite-test.git
-cd fortnite-island-analyzer
-
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Install the package in development mode
+# Optional: Install the package in development mode
 pip install -e .
+```
+
+### Node.js Dependencies
+
+```bash
+# Install Node.js dependencies
+npm install
 ```
 
 ### Environment Variables
@@ -37,95 +39,83 @@ FORTNITE_API_KEY=your-api-key
 
 You can get an API key from [fortniteapi.io](https://fortniteapi.io/).
 
-## Usage
+## Quick Start
 
-### Command Line Interface
-
-The main command-line interface provides access to all functionality:
+The easiest way to use this tool is with the combined script:
 
 ```bash
-# Basic usage
-python -m src.fortnite_analyzer 6155-1398-4059
+# Run with a specific map code
+python run_all_combined.py 1234-5678-9012
 
-# Run individual components
-python -m src.scrapers.island_scraper 6155-1398-4059
-python -m src.utils.chart_utils
-python -m src.utils.prediction_utils output/result.txt output/predictions.json
+# Or run without arguments to be prompted for a map code
+python run_all_combined.py
 ```
 
-Check [CHANGES.md](CHANGES.md) for details on the recent project reorganization.
+This will:
+1. Scrape player data from fortnite.gg
+2. Generate and display an interactive chart
+3. Fetch additional island information via the API
 
-### Python API
+## Individual Components
 
-You can also use the components as a Python library:
-
-```python
-# Scraper
-from src.scrapers.island_scraper import crawl_and_extract_island_data
-data_file = crawl_and_extract_island_data('6155-1398-4059', 'output/result.txt')
-
-# Chart utilities
-from src.utils.chart_utils import show_stats_and_chart
-show_stats_and_chart('output/result.txt')
-
-# Prediction utilities
-from src.utils.prediction_utils import generate_predictions
-import json
-with open('output/result.txt') as f:
-    data = json.load(f)
-predictions = generate_predictions(data)
-```
-
-### Next.js Web Interface
-
-The project includes a Next.js web interface for viewing island data:
+You can also run each component separately:
 
 ```bash
-# Navigate to the Next.js app directory
-cd next-app
+# Run just the web scraper
+python player-data-scrap.py 1234-5678-9012
 
-# Install dependencies
-npm install
+# Generate chart from scraped data
+python player_stats_chart.py
 
-# Run the development server
-npm run dev
+# Get island info from API
+node fortnite_island_data.js 1234-5678-9012
 ```
-
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
 ```
 fortnite-island-analyzer/
-├── src/                      # Python source code
-│   ├── api/                  # API client
-│   │   └── fortnite_api.js   # Fortnite API client
-│   ├── scrapers/             # Web scrapers
-│   │   └── island_scraper.py # Fortnite.gg scraper
-│   ├── utils/                # Utility functions
-│   │   ├── chart_utils.py    # Chart generation utilities
-│   │   └── prediction_utils.py # ML prediction utilities
-│   └── fortnite_analyzer.py  # Main entry point
-├── next-app/                 # Next.js web interface
-│   ├── app/                  # App directories
-│   │   ├── api/              # API routes
-│   │   └── ...               # Page components
-│   ├── components/           # React components
-│   └── ...                   # Configuration files
-├── output/                   # Output directory for data files
+├── run_all_combined.py       # Main entry point script
+├── player-data-scrap.py      # Web scraper for fortnite.gg
+├── player_stats_chart.py     # Chart generator for player stats
+├── fortnite_island_data.js   # Fortnite API client for island data
+├── player_prediction.py      # ML-based player count prediction
 ├── requirements.txt          # Python dependencies
+├── package.json              # Node.js dependencies
 ├── setup.py                  # Package setup script
 ├── CHANGES.md                # Details on recent changes
+├── output/                   # Output directory for data files
 └── README.md                 # This file
 ```
 
-See [CHANGES.md](CHANGES.md) for details on recent project reorganization.
+## Troubleshooting
 
-## API Endpoints
+### Missing Python Modules
 
-The Next.js application provides the following API endpoints:
+If you encounter a "Module not found" error, ensure you've installed all dependencies:
 
-- `POST /api/scrape` - Scrape data for a Fortnite island by map code
-- `POST /api/predict` - Generate player count predictions for a previously scraped island
-- `GET /api/health` - Check API health
-- `GET /api/profile` - Get user profile information 
+```bash
+pip install -r requirements.txt
+```
+
+For development, you may need to install the package in development mode:
+
+```bash
+pip install -e .
+```
+
+### Node.js Issues
+
+If you encounter issues with the JavaScript component:
+
+1. Ensure Node.js is installed (version 14+)
+2. Make sure dependencies are installed: `npm install`
+3. Check that your .env file exists with a valid API key
+
+### Browser Automation
+
+The web scraper uses browser automation. If you encounter issues:
+
+1. Ensure you have a modern browser installed
+2. Try running with the `headless=False` option in the code to see the browser in action
+3. Some websites may have anti-scraping measures that can change over time

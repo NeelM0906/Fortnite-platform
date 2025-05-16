@@ -13,8 +13,34 @@ External dependencies: crawl4ai, json
 """
 
 import sys
+import os
 import asyncio
 import json
+
+# Fix Python path to find system packages if needed
+try:
+    import crawl4ai
+except ImportError:
+    # Try to add the potential system Python path
+    python_version = '.'.join(map(str, sys.version_info[:2]))
+    potential_paths = [
+        # Add paths where crawl4ai might be installed
+        os.path.expanduser(f'~/.pyenv/versions/{sys.version.split()[0]}/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/Library/Python/{python_version}/lib/python/site-packages'),
+        os.path.expanduser(f'~/anaconda3/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/opt/anaconda3/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/miniconda3/lib/python{python_version}/site-packages'),
+        '/usr/local/lib/python{python_version}/site-packages',
+        '/usr/lib/python{python_version}/site-packages',
+    ]
+    
+    for path in potential_paths:
+        if os.path.exists(path):
+            sys.path.insert(0, path)
+            print(f"Added potential path: {path}")
+            break
+
+# Now try to import again
 from crawl4ai import (
     AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
     JsonCssExtractionStrategy

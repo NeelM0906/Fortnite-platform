@@ -1,10 +1,21 @@
 {
+  "name": "fortnite-island-analyzer",
+  "version": "1.0.0",
+  "description": "Tools for analyzing Fortnite creative island statistics and data",
+  "main": "fortnite_island_data.js",
+  "scripts": {
+    "start": "node fortnite_island_data.js"
+  },
   "dependencies": {
     "dotenv": "^16.5.0",
-    "fortnite-api-io": "^1.9.0"
+    "fortnite-api-io": "^1.9.0",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.18",
     "puppeteer": "^24.8.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }

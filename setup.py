@@ -12,8 +12,8 @@ with open("requirements.txt", "r", encoding="utf-8") as f:
 setup(
     name="fortnite-island-analyzer",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Fortnite Analyzer Team",
+    author_email="info@example.com",
     description="Tools for analyzing Fortnite Creative Island data",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,11 +24,14 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=requirements,
     entry_points={
         "console_scripts": [
             "fortnite-analyzer=src.fortnite_analyzer:main",
+            "fortnite-scraper=player-data-scrap:main",
+            "fortnite-chart=player_stats_chart:show_stats_and_chart",
         ],
     },
+    include_package_data=True,
 ) 
