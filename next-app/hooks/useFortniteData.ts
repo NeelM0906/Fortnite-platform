@@ -69,6 +69,9 @@ export default function useFortniteData({ onError }: UseFortniteDataProps = {}) 
     setError('');
     
     try {
+      // Clear any previous predictions
+      setPredictions(null);
+      
       const res = await fetch('/api/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,12 +80,30 @@ export default function useFortniteData({ onError }: UseFortniteDataProps = {}) 
       
       const result: PredictionResult = await res.json();
       
-      if (!res.ok) {
+      // If there's an error but predictions were still provided (fallback data)
+      if (result.error && result.predictions) {
+        console.warn("Prediction API returned an error but included fallback predictions:", result.error);
+        setPredictions(result.predictions);
+        if (onError) onError(result.error);
+        return true;
+      }
+      
+      // If there's an error and no predictions
+      if (!res.ok || result.error) {
         throw new Error(result.error || `Server returned ${res.status}`);
       }
       
       if (result.predictions) {
         console.log("Received predictions:", result.predictions);
+        
+        // Validate the predictions object
+        if (!result.predictions || 
+            !Array.isArray(result.predictions.predictions) || 
+            (result.predictions.best_player_count === undefined && !result.predictions.warning)) {
+          console.error("Invalid predictions format:", result.predictions);
+          throw new Error("Invalid prediction data format received");
+        }
+        
         setPredictions(result.predictions);
         return true;
       } else {

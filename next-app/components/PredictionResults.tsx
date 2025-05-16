@@ -14,8 +14,8 @@ interface PredictionPoint {
 }
 
 interface PredictionData {
-  best_player_count: number;
-  explanations: string[];
+  best_player_count?: number;
+  explanations?: string[];
   confidence_score?: number;
   is_simple_prediction?: boolean;
   is_hourly?: boolean;
@@ -29,7 +29,7 @@ interface PredictionData {
 }
 
 interface PredictionResultsProps {
-  predictions: PredictionData;
+  predictions: PredictionData | null;
   className?: string;
 }
 
@@ -42,12 +42,14 @@ export default function PredictionResults({ predictions, className = '' }: Predi
     console.log("Rendering predictions component with data:", predictions);
     
     // Process chart data when predictions change
-    if (predictions && predictions.predictions) {
+    if (predictions && predictions.predictions && predictions.predictions.length > 0) {
       processChartData();
     }
   }, [predictions]);
   
   const processChartData = () => {
+    if (!predictions) return;
+    
     try {
       const traces = [];
       
@@ -141,6 +143,7 @@ export default function PredictionResults({ predictions, className = '' }: Predi
     }
   };
 
+  // If no predictions data is provided at all
   if (!predictions) {
     console.warn("No predictions data received");
     return (
@@ -159,11 +162,14 @@ export default function PredictionResults({ predictions, className = '' }: Predi
     );
   }
 
-  if (!predictions.best_player_count && predictions.best_player_count !== 0) {
-    console.warn("Invalid predictions data - missing best_player_count");
+  // If predictions object exists but is missing key required fields
+  if (!predictions.predictions || predictions.predictions.length === 0 || 
+      (predictions.best_player_count === undefined && !predictions.warning)) {
+    console.warn("Invalid predictions data structure", predictions);
     return (
       <div className={`prediction-results ${className} empty-prediction`}>
         <p>Invalid prediction data received</p>
+        <p className="error-details">Please try regenerating predictions</p>
         <style jsx>{`
           .empty-prediction {
             background-color: #f8f9fa;
@@ -171,6 +177,11 @@ export default function PredictionResults({ predictions, className = '' }: Predi
             padding: 24px;
             text-align: center;
             color: #666;
+          }
+          .error-details {
+            font-size: 14px;
+            color: #888;
+            margin-top: 8px;
           }
         `}</style>
       </div>
@@ -182,6 +193,7 @@ export default function PredictionResults({ predictions, className = '' }: Predi
     'N/A';
 
   const isSimplePrediction = predictions.is_simple_prediction || false;
+  const bestPlayerCount = predictions.best_player_count || 100;
 
   // Ensure explanations is an array
   const explanationsArray = Array.isArray(predictions.explanations) 
@@ -201,7 +213,7 @@ export default function PredictionResults({ predictions, className = '' }: Predi
 
       <div className="main-prediction">
         <div className="best-count">
-          <span className="number">{predictions.best_player_count}</span>
+          <span className="number">{bestPlayerCount}</span>
           <span className="label">players</span>
         </div>
       </div>
@@ -249,133 +261,145 @@ export default function PredictionResults({ predictions, className = '' }: Predi
 
       <style jsx>{`
         .prediction-results {
-          background-color: #ffffff;
+          background-color: white;
           border-radius: 8px;
           padding: 24px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
           margin-bottom: 24px;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
-
+        
         .simple-prediction {
-          border-left: 4px solid #fbbc05;
+          background-color: #fafafa;
+          border: 1px dashed #ccc;
         }
-
+        
         .prediction-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
         }
-
-        h3 {
+        
+        .prediction-header h3 {
           margin: 0;
-          color: #222;
-          font-size: 1.4rem;
+          font-size: 1.25rem;
+          color: #333;
         }
-
-        h4 {
-          margin: 16px 0 8px;
-          color: #444;
-          font-size: 1.1rem;
-        }
-
+        
         .confidence {
-          background-color: #f8f9fa;
-          padding: 6px 12px;
-          border-radius: 16px;
+          background-color: #f0f4ff;
+          border-radius: 4px;
+          padding: 4px 8px;
           font-size: 0.9rem;
-          color: #555;
+          color: #4285f4;
         }
-
+        
         .confidence span {
-          font-weight: 600;
-          color: #1a73e8;
+          font-weight: bold;
         }
-
+        
         .main-prediction {
-          display: flex;
-          justify-content: center;
-          margin: 30px 0;
+          text-align: center;
+          margin: 24px 0;
         }
-
+        
         .best-count {
-          display: flex;
+          display: inline-flex;
           flex-direction: column;
           align-items: center;
-          background-color: #e8f0fe;
-          border-radius: 12px;
-          padding: 24px 36px;
+          background-color: #34a853;
+          color: white;
+          border-radius: 8px;
+          padding: 16px 32px;
         }
-
-        .number {
-          font-size: 3rem;
-          font-weight: 700;
-          color: #1a73e8;
-          line-height: 1.2;
+        
+        .best-count .number {
+          font-size: 2.5rem;
+          font-weight: bold;
+          line-height: 1;
         }
-
-        .label {
-          font-size: 1.2rem;
-          color: #444;
+        
+        .best-count .label {
+          font-size: 1rem;
           margin-top: 4px;
         }
-
-        .warning-message {
-          background-color: #fff9e6;
-          border-radius: 8px;
-          padding: 12px 16px;
-          margin-bottom: 20px;
-          border-left: 4px solid #fbbc05;
+        
+        .explanations {
+          margin: 24px 0;
         }
-
-        .warning-message p {
-          margin: 0;
-          color: #624200;
-          font-size: 0.95rem;
+        
+        .explanations h4, .chart-container h4, .alternatives h4 {
+          font-size: 1.1rem;
+          margin-bottom: 12px;
+          color: #333;
         }
-
+        
         .explanations ul {
           margin: 0;
           padding-left: 20px;
         }
-
+        
         .explanations li {
           margin-bottom: 8px;
-          color: #444;
-          line-height: 1.5;
+          color: #555;
         }
         
         .chart-container {
-          margin: 20px 0;
+          margin: 32px 0;
           height: 400px;
-          width: 100%;
         }
-
+        
+        .warning-message {
+          background-color: #fff9c4;
+          border-left: 4px solid #ffc107;
+          padding: 12px 16px;
+          margin: 16px 0;
+          color: #856404;
+          border-radius: 4px;
+        }
+        
+        .warning-message p {
+          margin: 0;
+        }
+        
         .alternatives-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: 16px;
-          margin-top: 12px;
+          margin-top: 16px;
         }
-
+        
         .alternative-option {
-          background-color: #f8f9fa;
+          border: 1px solid #e0e0e0;
           border-radius: 8px;
           padding: 16px;
-          border: 1px solid #e0e0e0;
         }
-
+        
         .alt-count {
-          font-weight: 600;
-          color: #444;
+          font-weight: bold;
+          font-size: 1.2rem;
           margin-bottom: 8px;
-          font-size: 1.1rem;
+          color: #4285f4;
+        }
+        
+        .alt-reason {
+          font-size: 0.9rem;
+          color: #555;
         }
 
-        .alt-reason {
-          color: #666;
-          font-size: 0.9rem;
-          line-height: 1.4;
+        @media (max-width: 768px) {
+          .prediction-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          
+          .confidence {
+            margin-top: 8px;
+          }
+          
+          .chart-container {
+            height: 300px;
+          }
         }
       `}</style>
     </div>
