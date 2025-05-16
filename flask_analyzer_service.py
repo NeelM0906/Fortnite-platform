@@ -462,5 +462,5 @@ def chart_endpoint(map_code):
 
 if __name__ == '__main__':
     # Get port from environment variable or use default
-    port = int(os.environ.get("FLASK_RUN_PORT", 5000))
+    port = int(os.environ.get("FLASK_RUN_PORT", 5003))
     app.run(host='0.0.0.0', port=port, debug=True) 

@@ -20,7 +20,7 @@ import signal
 # Path configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def start_analyzer_service(port=5000):
+def start_analyzer_service(port=5003):
     """Start the Flask Analyzer Service"""
     print(f"Starting Flask Analyzer Service on port {port}...")
     
@@ -33,7 +33,7 @@ def start_analyzer_service(port=5000):
     
     return subprocess.Popen(cmd, env=env)
 
-def start_prediction_service(port=3000):
+def start_prediction_service(port=3003):
     """Start the Player Prediction Service"""
     print(f"Starting Player Prediction Service on port {port}...")
     
@@ -64,8 +64,8 @@ def handle_shutdown(processes):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description='Start Fortnite Analyzer services')
-    parser.add_argument('--analyzer-port', type=int, default=5000, help='Port for analyzer service')
-    parser.add_argument('--prediction-port', type=int, default=3000, help='Port for prediction service')
+    parser.add_argument('--analyzer-port', type=int, default=5003, help='Port for analyzer service')
+    parser.add_argument('--prediction-port', type=int, default=3003, help='Port for prediction service')
     args = parser.parse_args()
     
     # Change to script directory to ensure relative paths work
