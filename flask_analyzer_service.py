@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+"""
+Flask Service for Fortnite Island Analysis
+
+Provides REST API endpoints for:
+1. /island_info/<map_code> - Get island metadata
+2. /player_stats/<map_code> - Get player stats
+3. /full_analysis/<map_code> - Get complete analysis (metadata + stats)
+
+Usage:
+    python flask_analyzer_service.py
+
+Then access via:
+    http://localhost:5002/island_info/<map_code>
+    http://localhost:5002/player_stats/<map_code>
+    http://localhost:5002/full_analysis/<map_code>
+"""
+import sys
+import os
+import json
+import time
+import io
+import base64
+from datetime import datetime
+from flask import Flask, jsonify, request, render_template, send_file
+
+# Create Flask app
+app = Flask(__name__)
+
+# Ensure output directory exists
+OUTPUT_DIR = "output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# --- Import from existing modules ---
+# From player-data-scrap.py
+try:
+    from crawl4ai import (
+        AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
+        JsonCssExtractionStrategy
+    )
+except ImportError:
+    print("ERROR: crawl4ai module not found. Please follow the instructions in CRAWL4AI_SETUP.md to install it correctly.")
+    sys.exit(1)
+
+# From player_stats_chart.py
+try:
+    import plotly.graph_objects as go
+    import plotly.io as pio
+except ImportError:
+    print("Plotly not installed. Install with: pip install plotly")
+    sys.exit(1)
+
+try:
+    from tabulate import tabulate
+    use_tabulate = True
+except ImportError:
+    use_tabulate = False
+    print("Tabulate not installed. Tables will be displayed in simple format.")
+
+# From fortnite_island_data_complete.py
+try:
+    import requests
+except ImportError:
+    print("Requests not installed. Install with: pip install requests")
+    sys.exit(1)
+
+# --- Utility Functions ---
+def safe_int(val):
+    """
+    Safely convert a string to int, handling commas, 'K', and invalid values.
+    """
+    if not val or val == '-':
+        return None
+    try:
+        return int(val.replace(',', '').replace('K','000').split()[0])
+    except Exception:
+        return None
+
+# --- Island Metadata API Functions (from fortnite_island_data_complete.py) ---
+def get_island_data(map_code, api_key=None):
+    """
+    Fetches detailed data for a specific Fortnite Creative Island by its code.
+    """
+    # Base URL for the Fortnite API (fortniteapi.io)
+    BASE_URL = "https://fortniteapi.io/v1"
+    
+    # Check for API key in environment variable
+    if not api_key:
+        api_key = os.environ.get("FORTNITE_API_KEY")
+    
+    # If no API key is available, inform the user but continue with web scraping
+    if not api_key:
+        app.logger.warning("No Fortnite API key found. Set FORTNITE_API_KEY environment variable for additional metadata.")
+        return None
+        
+    # Standard headers for all API requests, including authorization
+    headers = {"Authorization": api_key}
+    
+    endpoint_url = f"{BASE_URL}/creative/island"
+    params = {"code": map_code}
+    
+    app.logger.info(f"Fetching Island Information for {map_code}")
+    
+    try:
+        response = requests.get(endpoint_url, headers=headers, params=params)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Check if the API indicates success and island data is present
+        if data.get("result") is True and data.get("island"):
+            island_details = data["island"]
+            # Return a structured dictionary of the relevant island details
+            return {
+                "code": island_details.get("code"),
+                "title": island_details.get("title"),
+                "description": island_details.get("description"),
+                "creator": island_details.get("creator"),
+                "creator_code": island_details.get("creatorCode"),
+                "creator_id": island_details.get("creatorId"),
+                "published_date": island_details.get("publishedDate"),
+                "tags": island_details.get("tags", []),
+                "image_url": island_details.get("image"),
+                "lobby_image_url": island_details.get("lobbyImage"),
+                "version": island_details.get("latestVersion"),
+                "island_type": island_details.get("islandType"),
+                "status": island_details.get("status"),
+                "ratings": island_details.get("ratings")
+            }
+        else:
+            app.logger.warning(f"API reports success but island data is incomplete or not found for code: {map_code}")
+            return None
+            
+    except requests.exceptions.HTTPError as http_err:
+        app.logger.error(f"HTTP error occurred while fetching island {map_code}: {http_err}")
+    except requests.exceptions.Timeout as timeout_err:
+        app.logger.error(f"Timeout error occurred while fetching island {map_code}: {timeout_err}")
+    except requests.exceptions.RequestException as req_err:
+        app.logger.error(f"Request exception occurred while fetching island {map_code}: {req_err}")
+    except json.JSONDecodeError as json_err:
+        app.logger.error(f"Failed to decode JSON response for island {map_code}: {json_err}")
+    
+    app.logger.warning("Could not fetch island data from API")
+    return None
+
+# --- Web Scraping Functions (from player-data-scrap.py) ---
+def get_js_to_keep_only_elements(xpaths):
+    """
+    Returns a JS snippet that keeps only the elements matching the given XPaths.
+    """
+    xpaths_js = ',\n            '.join([f'\'{xp}\'' for xp in xpaths])
+    return f"""
+(() => {{
+    const xpaths = [
+        {xpaths_js}
+    ];
+    const keepNodes = xpaths.map(xpath => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue).filter(Boolean);
+    if (keepNodes.length === 0) return;
+    const newBody = document.createElement('body');
+    keepNodes.forEach(node => {{
+        newBody.appendChild(node.cloneNode(true));
+    }});
+    document.body.parentNode.replaceChild(newBody, document.body);
+}})();
+"""
+
+def get_fortnite_chart_schema():
+    """
+    Returns the extraction schema for Fortnite chart data.
+    """
+    return {
+        "name": "Fortnite Chart Full Extraction",
+        "baseSelector": "div.chart-wrap-wrap",
+        "fields": [
+            {"name": "title", "selector": "h2 a", "type": "text"},
+            {"name": "title_link", "selector": "h2 a", "type": "attribute", "attribute": "href"},
+            {"name": "chart_image", "selector": "img.island-img-thumb", "type": "attribute", "attribute": "src"},
+            {"name": "chart_image_alt", "selector": "img.island-img-thumb", "type": "attribute", "attribute": "alt"},
+            {
+                "name": "player_stats",
+                "selector": "div.chart-stats-div",
+                "type": "nested_list",
+                "fields": [
+                    {"name": "stat_value", "selector": "div.chart-stats-title", "type": "text"},
+                    {"name": "stat_label", "selector": "div:not(.chart-stats-title)", "type": "text"}
+                ]
+            },
+            {
+                "name": "chart_ranges",
+                "selector": "div.chart-range",
+                "type": "list",
+                "fields": [
+                    {"name": "range", "type": "text"}
+                ]
+            },
+            {"name": "double_click_info", "selector": "div.chart-dblclick-info", "type": "text"},
+            {
+                "name": "table_rows",
+                "selector": "#chart-month-table tbody tr",
+                "type": "nested_list",
+                "fields": [
+                    {"name": "time", "selector": "td:nth-child(1)", "type": "text"},
+                    {"name": "peak", "selector": "td:nth-child(2)", "type": "text"},
+                    {"name": "gain", "selector": "td:nth-child(3)", "type": "text"},
+                    {"name": "percent_gain", "selector": "td:nth-child(4)", "type": "text"},
+                    {"name": "average", "selector": "td:nth-child(5)", "type": "text"},
+                    {"name": "avg_gain", "selector": "td:nth-child(6)", "type": "text"},
+                    {"name": "avg_percent_gain", "selector": "td:nth-child(7)", "type": "text"},
+                    {"name": "estimated_earnings", "selector": "td:nth-child(8)", "type": "text"}
+                ]
+            },
+            {"name": "tooltip", "selector": "div.chart-tooltip", "type": "text"}
+        ]
+    }
+
+def safe_async_run(coro):
+    """
+    Runs an async coroutine safely, handling KeyboardInterrupt.
+    """
+    import asyncio
+    try:
+        return asyncio.run(coro)
+    except KeyboardInterrupt:
+        app.logger.warning("Operation cancelled by user.")
+        return None
+
+async def _run_crawler(url, js_code, schema, output_path):
+    """
+    Helper function to run the crawler asynchronously.
+    """
+    browser_conf = BrowserConfig(headless=True)
+    extraction_strategy = JsonCssExtractionStrategy(verbose=False, schema=schema)
+    run_conf = CrawlerRunConfig(
+        cache_mode=CacheMode.BYPASS,
+        delay_before_return_html=5,
+        table_score_threshold=100,
+        js_code=js_code,
+        extraction_strategy=extraction_strategy
+    )
+    
+    async with AsyncWebCrawler(config=browser_conf) as crawler:
+        result = await crawler.arun(url=url, config=run_conf)
+        if output_path:
+            with open(output_path, "w") as f:
+                f.write(result.extracted_content)
+        return result.extracted_content
+
+def scrape_player_data(map_code, output_path=None):
+    """
+    Scrapes player data from fortnite.gg for the given map code.
+    Returns the scraped data as a dictionary.
+    """
+    app.logger.info(f"Scraping Player Stats for {map_code}")
+    target_url = f"https://fortnite.gg/island?code={map_code}"
+    xpaths_to_keep = [
+        '/html/body/div[4]/div[3]'
+    ]
+    
+    js_code = get_js_to_keep_only_elements(xpaths_to_keep)
+    schema = get_fortnite_chart_schema()
+    
+    app.logger.info(f"Launching headless browser to scrape data from {target_url}")
+    
+    content = safe_async_run(_run_crawler(target_url, js_code, schema, output_path))
+    
+    if not content:
+        app.logger.error(f"Failed to scrape data from {target_url}")
+        return None
+        
+    app.logger.info(f"Data successfully scraped for {map_code}")
+    
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        app.logger.error(f"Failed to parse JSON from scraper result")
+        return None
+
+# --- Chart and Stats Functions (from player_stats_chart.py) ---
+def prepare_player_data(data):
+    """
+    Processes the player data for charting and tables.
+    Returns formatted data that can be used by the API.
+    """
+    if not data:
+        return None, None, None, None
+    
+    # If data is a list, get the first item
+    if isinstance(data, list):
+        if len(data) == 0:
+            return None, None, None, None
+        data = data[0]
+    
+    # Extract player stats
+    player_stats = []
+    for stat in data.get('player_stats', []):
+        player_stats.append({
+            'label': stat.get('stat_label', '').strip(),
+            'value': stat.get('stat_value', '').strip()
+        })
+    
+    table = data.get('table_rows', [])
+    if not table:
+        return player_stats, None, None, None
+    
+    # Prepare data for table and chart
+    table_data = []
+    times, peaks, avgs = [], [], []
+    for row in table:
+        t = row.get('time')
+        p = safe_int(row.get('peak', ''))
+        a = safe_int(row.get('average', ''))
+        if t and p is not None:
+            if a is None:
+                a = 0  # Use 0 for missing average values
+            table_data.append({'time': t, 'peak': p, 'average': a})
+            times.append(t)
+            peaks.append(p)
+            avgs.append(a)
+    
+    return player_stats, table_data, times, peaks, avgs
+
+def generate_chart_image(times, peaks, avgs, title='Player Count Over Time'):
+    """
+    Generates a chart image as a base64 string.
+    """
+    if not times or not peaks:
+        return None
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=times, y=peaks, mode='lines+markers', name='Peak'))
+    fig.add_trace(go.Scatter(x=times, y=avgs, mode='lines+markers', name='Average'))
+    fig.update_layout(
+        title=title,
+        xaxis_title='Time',
+        yaxis_title='Players',
+        legend_title='Legend'
+    )
+    
+    # Convert to PNG bytes and encode as base64 for embedding
+    img_bytes = pio.to_image(fig, format='png')
+    img_base64 = base64.b64encode(img_bytes).decode('ascii')
+    
+    return img_base64
+
+def get_player_data_with_chart(map_code):
+    """
+    Gets player data and generates chart for a map code.
+    """
+    output_path = os.path.join(OUTPUT_DIR, f"result_{map_code}.txt")
+    
+    # Scrape the player data
+    player_data = scrape_player_data(map_code, output_path)
+    
+    if not player_data:
+        return {"error": "Failed to scrape player data"}, 500
+    
+    # Process the data for the API
+    player_stats, table_data, times, peaks, avgs = prepare_player_data(player_data)
+    
+    result = {
+        "map_code": map_code,
+        "player_stats": player_stats,
+        "table_data": table_data,
+    }
+    
+    # Generate chart if data is available
+    if times and peaks and avgs:
+        chart_base64 = generate_chart_image(times, peaks, avgs)
+        result["chart_image"] = chart_base64
+    
+    return result
+
+# --- Flask Routes ---
+@app.route('/')
+def index():
+    """Home page with basic instructions"""
+    return jsonify({
+        "service": "Fortnite Island Analyzer API",
+        "endpoints": [
+            "/island_info/<map_code>",
+            "/player_stats/<map_code>",
+            "/full_analysis/<map_code>",
+            "/chart/<map_code>"
+        ],
+        "usage": "Replace <map_code> with a valid Fortnite island code"
+    })
+
+@app.route('/island_info/<map_code>')
+def island_info_endpoint(map_code):
+    """Get island metadata for a map code"""
+    island_data = get_island_data(map_code)
+    if island_data:
+        return jsonify(island_data)
+    else:
+        return jsonify({"error": "Failed to retrieve island data"}), 404
+
+@app.route('/player_stats/<map_code>')
+def player_stats_endpoint(map_code):
+    """Get player stats for a map code"""
+    result = get_player_data_with_chart(map_code)
+    return jsonify(result)
+
+@app.route('/full_analysis/<map_code>')
+def full_analysis_endpoint(map_code):
+    """Get both island info and player stats for a map code"""
+    island_data = get_island_data(map_code)
+    player_data = get_player_data_with_chart(map_code)
+    
+    result = {
+        "map_code": map_code,
+        "island_info": island_data,
+        "player_data": player_data
+    }
+    
+    return jsonify(result)
+
+@app.route('/chart/<map_code>')
+def chart_endpoint(map_code):
+    """Generate and return a chart image for a map code"""
+    output_path = os.path.join(OUTPUT_DIR, f"result_{map_code}.txt")
+    
+    # Check if we already have data for this map code
+    if os.path.exists(output_path):
+        try:
+            with open(output_path) as f:
+                player_data = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            # If file exists but can't be read, scrape again
+            player_data = scrape_player_data(map_code, output_path)
+    else:
+        # Scrape the player data
+        player_data = scrape_player_data(map_code, output_path)
+    
+    if not player_data:
+        return jsonify({"error": "Failed to retrieve player data"}), 404
+    
+    # Process the data for the chart
+    player_stats, table_data, times, peaks, avgs = prepare_player_data(player_data)
+    
+    if not times or not peaks:
+        return jsonify({"error": "No valid chart data available"}), 404
+    
+    # Generate the chart image
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=times, y=peaks, mode='lines+markers', name='Peak'))
+    fig.add_trace(go.Scatter(x=times, y=avgs, mode='lines+markers', name='Average'))
+    fig.update_layout(
+        title=f'Player Count for {map_code}',
+        xaxis_title='Time',
+        yaxis_title='Players',
+        legend_title='Legend'
+    )
+    
+    # Convert to PNG bytes
+    img_bytes = pio.to_image(fig, format='png')
+    
+    return send_file(
+        io.BytesIO(img_bytes),
+        mimetype='image/png',
+        download_name=f'chart_{map_code}.png'
+    )
+
+if __name__ == '__main__':
+    # Get port from environment variable or use default
+    port = int(os.environ.get("FLASK_RUN_PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True) 
