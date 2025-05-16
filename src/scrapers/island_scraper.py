@@ -16,10 +16,40 @@ import json
 import os
 from pathlib import Path
 
-from crawl4ai import (
-    AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
-    JsonCssExtractionStrategy
-)
+# Fix Python path to find system packages if needed
+try:
+    from crawl4ai import (
+        AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
+        JsonCssExtractionStrategy
+    )
+except ImportError:
+    # Try to add the potential system Python path
+    python_version = '.'.join(map(str, sys.version_info[:2]))
+    potential_paths = [
+        # Add paths where crawl4ai might be installed
+        os.path.expanduser(f'~/.pyenv/versions/{sys.version.split()[0]}/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/Library/Python/{python_version}/lib/python/site-packages'),
+        os.path.expanduser(f'~/anaconda3/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/opt/anaconda3/lib/python{python_version}/site-packages'),
+        os.path.expanduser(f'~/miniconda3/lib/python{python_version}/site-packages'),
+        '/usr/local/lib/python{python_version}/site-packages',
+        '/usr/lib/python{python_version}/site-packages',
+    ]
+    
+    for path in potential_paths:
+        if os.path.exists(path):
+            sys.path.insert(0, path)
+            print(f"Added potential path: {path}")
+            break
+    
+    try:
+        from crawl4ai import (
+            AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
+            JsonCssExtractionStrategy
+        )
+    except ImportError:
+        print("ERROR: crawl4ai module not found. Please follow the instructions in CRAWL4AI_SETUP.md to install it correctly.")
+        sys.exit(1)
 
 def get_js_to_keep_only_elements(xpaths):
     """

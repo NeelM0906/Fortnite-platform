@@ -29,6 +29,16 @@ pip install -e .
 npm install
 ```
 
+### Crawl4AI Setup
+
+This project uses Crawl4AI for web scraping. If you encounter import errors with this module, please refer to the [Crawl4AI Setup Guide](./CRAWL4AI_SETUP.md) for detailed installation and troubleshooting instructions.
+
+```bash
+# Basic Crawl4AI installation
+pip install crawl4ai
+crawl4ai-setup
+```
+
 ### Environment Variables
 
 Create a `.env` file in the project root with the following variables:
@@ -84,6 +94,7 @@ fortnite-island-analyzer/
 ├── package.json              # Node.js dependencies
 ├── setup.py                  # Package setup script
 ├── CHANGES.md                # Details on recent changes
+├── CRAWL4AI_SETUP.md         # Guide for Crawl4AI installation
 ├── output/                   # Output directory for data files
 └── README.md                 # This file
 ```
@@ -103,6 +114,8 @@ For development, you may need to install the package in development mode:
 ```bash
 pip install -e .
 ```
+
+For the crawl4ai module specifically, consult [CRAWL4AI_SETUP.md](./CRAWL4AI_SETUP.md).
 
 ### Node.js Issues
 

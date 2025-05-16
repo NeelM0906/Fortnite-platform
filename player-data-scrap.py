@@ -41,10 +41,14 @@ except ImportError:
             break
 
 # Now try to import again
-from crawl4ai import (
-    AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
-    JsonCssExtractionStrategy
-)
+try:
+    from crawl4ai import (
+        AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode,
+        JsonCssExtractionStrategy
+    )
+except ImportError:
+    print("ERROR: crawl4ai module not found. Please follow the instructions in CRAWL4AI_SETUP.md to install it correctly.")
+    sys.exit(1)
 
 def get_js_to_keep_only_elements(xpaths):
     """
@@ -170,11 +174,18 @@ def main():
     if not map_code:
         print("No map code provided. Exiting.")
         return
+    
+    # Ensure output directory exists
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "result.txt")
+    
     target_url = f"https://fortnite.gg/island?code={map_code}"
     xpaths_to_keep = [
         '/html/body/div[4]/div[3]'
     ]
-    crawl_and_extract(target_url, xpaths_to_keep, "result.txt")
+    crawl_and_extract(target_url, xpaths_to_keep, output_path)
+    print(f"Data extracted and saved to {output_path}")
 
 if __name__ == "__main__":
     main()

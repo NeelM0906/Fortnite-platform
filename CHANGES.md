@@ -1,62 +1,65 @@
-# Changes to Project Structure
+# Changes to Fortnite Island Analyzer
 
-This document outlines the recent changes made to the Fortnite Island Analyzer project structure.
+This document outlines the recent changes made to the Fortnite Island Analyzer project.
 
-## Code Reorganization
+## Latest Updates (v0.1.0)
 
-All Python scripts have been moved to their proper directories in the `src` folder:
+### Bug Fixes
+- Fixed crawl4ai module import error by adding robust path resolution to both scraper scripts
+- Updated output file paths to use the output directory consistently
+- Added comprehensive error handling for crawl4ai module imports
+- Fixed path issues in run_all_combined.py script
 
-- `player-data-scrap.py` → `src/scrapers/island_scraper.py`  
-- `player_prediction.py` → `src/utils/prediction_utils.py`  
-- `player_stats_chart.py` → `src/utils/chart_utils.py`  
-- `fortnite_island_data.js` → `src/api/fortnite_api.js`
+### New Features
+- Added CRAWL4AI_SETUP.md with detailed installation and troubleshooting instructions
+- Added default map code in run_all_combined.py for easier testing
+- Improved feedback for users when modules are missing
 
-This ensures a clean separation of concerns and better organization:
-- `src/api/` - Contains API clients and data fetching logic
-- `src/scrapers/` - Contains web scraping utilities
-- `src/utils/` - Contains utilities for charts, predictions, and data processing
+### Dependency Updates
+- Updated requirements.txt to include all necessary Python dependencies
+- Updated package.json with proper Node.js dependency specifications
+- Added playwright as an explicit dependency
 
-## Output File Standardization
+## Project Structure
 
-All output files are now consistently stored in the `output/` directory:
+The project maintains the following structure:
 
-- `result.txt` → `output/result.txt`
-- `predictions.json` → `output/predictions.json`
-- Other generated files → `output/[filename]`
-
-## API Route Updates
-
-The Next.js API routes have been updated to use the new file locations:
-
-- `/api/scrape` - Now calls the Python scripts in their new locations
-- `/api/predict` - Now calls the prediction utility with updated file paths
-
-## Module Entry Point
-
-The project now has a clear entry point in `src/fortnite_analyzer.py` that:
-
-1. Uses imports directly instead of subprocess calls where possible
-2. Creates proper output directories
-3. Provides a unified interface for all project features
+```
+fortnite-island-analyzer/
+├── run_all_combined.py       # Main entry point script
+├── player-data-scrap.py      # Web scraper for fortnite.gg
+├── player_stats_chart.py     # Chart generator for player stats
+├── fortnite_island_data.js   # Fortnite API client for island data
+├── player_prediction.py      # ML-based player count prediction
+├── requirements.txt          # Python dependencies
+├── package.json              # Node.js dependencies
+├── setup.py                  # Package setup script
+├── CHANGES.md                # This file
+├── CRAWL4AI_SETUP.md         # Guide for Crawl4AI installation
+├── output/                   # Output directory for data files
+└── README.md                 # Project documentation
+```
 
 ## Usage Examples
 
-You can use the reorganized codebase in the following ways:
+You can use the project in the following ways:
 
 ```bash
-# Run the main analyzer
-python -m src.fortnite_analyzer [map_code]
+# Run the main unified script
+python run_all_combined.py [map_code]
 
-# Run the scraper directly
-python -m src.scrapers.island_scraper [map_code]
+# Run the web scraper directly
+python player-data-scrap.py [map_code]
 
-# Generate predictions
-python -m src.utils.prediction_utils output/result.txt output/predictions.json
+# Generate chart from scraped data
+python player_stats_chart.py
 
-# Show statistics and chart
-python -m src.utils.chart_utils
+# Use the JavaScript API client
+node fortnite_island_data.js [map_code]
 ```
 
-## Next.js Application
-
-The Next.js application is unchanged functionally but now calls scripts in their new locations. 
+## Future Plans
+- Create a more structured package with proper src directory organization
+- Improve error handling and user feedback across all components
+- Add more visualization options for player data
+- Enhance prediction accuracy with additional machine learning models 
