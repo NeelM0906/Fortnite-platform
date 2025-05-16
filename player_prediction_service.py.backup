@@ -1,0 +1,533 @@
+#!/usr/bin/env python3
+"""
+Flask Service for Fortnite Player Predictions
+
+Provides REST API endpoints for:
+1. /predict/<map_code> - Generate predictions for a given map code
+2. /predict/<map_code>/<period> - Generate predictions for a specific period (12h, 24h, 7d)
+3. /predict/chart/<map_code> - Generate and return a visualization of predictions
+4. /predict/data/<map_code> - Return raw prediction data for frontend processing
+
+Usage:
+    python player_prediction_service.py
+
+Then access via:
+    http://localhost:3000/predict/<map_code>
+    http://localhost:3000/predict/<map_code>/<period>
+    http://localhost:3000/predict/chart/<map_code>
+    http://localhost:3000/predict/data/<map_code>
+"""
+import sys
+import os
+import json
+import io
+import base64
+import time
+from datetime import datetime, timedelta
+from functools import lru_cache
+from flask import Flask, jsonify, request, send_file
+from flask_cors import CORS  # For cross-origin requests
+
+# Import from our src module
+from src.utils.prediction_utils import (
+    parse_time, 
+    preprocess_data, 
+    train_model, 
+    generate_simple_predictions, 
+    generate_predictions as core_generate_predictions
+)
+
+# Import prediction-related libraries
+import pandas as pd
+import numpy as np
+
+# Conditionally import Prophet - this is a heavy dependency
+try:
+    from prophet import Prophet
+    has_prophet = True
+except ImportError:
+    print("Warning: Prophet not installed. Will use simple predictions only.")
+    print("To enable advanced predictions, install with: pip install prophet")
+    has_prophet = False
+
+# Import visualization libraries
+try:
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    has_plotly = True
+except ImportError:
+    print("Warning: Plotly not installed. Chart generation will not be available.")
+    print("To enable charts, install with: pip install plotly")
+    has_plotly = False
+
+# Create Flask app
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Configure logging
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# Ensure output directory exists
+OUTPUT_DIR = "output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Cache settings
+CACHE_EXPIRY = 3600  # Cache predictions for 1 hour
+prediction_cache = {}
+
+# --- Utility Functions ---
+def get_player_data(map_code):
+    """
+    Get player data for a map code, either from cache or by reading from file.
+    
+    Args:
+        map_code (str): Fortnite map code
+        
+    Returns:
+        dict or None: Player data if available, None otherwise
+    """
+    # Validate map code format
+    if not map_code or not isinstance(map_code, str):
+        app.logger.error(f"Invalid map code format: {map_code}")
+        return None
+        
+    # Look for existing data file for this map code
+    result_file = os.path.join(OUTPUT_DIR, f"result_{map_code}.txt")
+    if not os.path.exists(result_file):
+        # Try legacy filename
+        result_file = os.path.join(OUTPUT_DIR, "result.txt")
+        if not os.path.exists(result_file):
+            app.logger.warning(f"No player data found for map code: {map_code}")
+            return None
+        else:
+            # When using the default result.txt, check if the map code is in the results
+            # This prevents returning data for invalid map codes
+            try:
+                with open(result_file) as f:
+                    data = json.load(f)
+                    # If it's the generic result file, we should verify the map code matches
+                    # This is basic validation - real implementation would check island code in the data
+                    # If we're using the default file, let's at least check if it's one of our sample codes
+                    if map_code != "SAMPLE" and "default_sample_data" not in map_code.lower():
+                        app.logger.warning(f"Map code {map_code} not found in available data")
+                        return None
+                    return data
+            except (json.JSONDecodeError, IOError) as e:
+                app.logger.error(f"Error reading player data: {str(e)}")
+                return None
+    
+    try:
+        with open(result_file) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        app.logger.error(f"Error reading player data: {str(e)}")
+        return None
+
+def format_time_consistently(dt, frequency):
+    """
+    Format date/time consistently across the application.
+    
+    Args:
+        dt (datetime): The datetime to format
+        frequency (str): The frequency type ('H' for hourly, 'D' for daily)
+        
+    Returns:
+        str: Consistently formatted time string
+    """
+    if frequency == 'H':
+        hour = dt.hour
+        am_pm = 'AM' if hour < 12 else 'PM'
+        hour_12 = hour % 12
+        if hour_12 == 0:
+            hour_12 = 12
+        return f"{hour_12} {am_pm}"
+    else:
+        # Use consistent date format MMM DD (e.g., May 16)
+        return dt.strftime('%b %d')
+
+def get_period_values(period):
+    """
+    Get the number of periods and frequency for a given period string.
+    
+    Args:
+        period (str): Period specifier ('12h', '24h', '7d', etc.)
+        
+    Returns:
+        tuple: (periods, frequency)
+    """
+    # Default values
+    periods = 12
+    frequency = 'H'  # H for hourly
+    
+    if not period:
+        return periods, frequency
+    
+    # Parse the period string
+    try:
+        if period.endswith('h'):
+            # Hourly
+            periods = int(period[:-1])
+            frequency = 'H'
+        elif period.endswith('d'):
+            # Daily
+            periods = int(period[:-1])
+            frequency = 'D'
+        elif period.endswith('w'):
+            # Weekly
+            periods = int(period[:-1]) * 7
+            frequency = 'D'
+        else:
+            # Try to parse as integer hours
+            periods = int(period)
+            frequency = 'H'
+    except ValueError:
+        app.logger.warning(f"Invalid period format: {period}, using default")
+        
+    return periods, frequency
+
+def generate_predictions(data, period=None):
+    """
+    Generate predictions for the next N periods based on historical data.
+    
+    Args:
+        data (dict): The data from result.txt
+        period (str): Period specifier ('12h', '24h', '7d', etc.)
+        
+    Returns:
+        dict: Dictionary with predictions
+    """
+    app.logger.info("Starting prediction generation")
+    df, _ = preprocess_data(data)
+    
+    # Default period values
+    periods = 12
+    frequency = 'H'
+    
+    # Check if specific period is requested
+    if period:
+        periods, frequency = get_period_values(period)
+    
+    if df is None or df.empty:
+        app.logger.warning("No data to process")
+        # Create synthetic predictions
+        empty_df = pd.DataFrame({
+            'ds': [datetime.now() + timedelta(hours=i) for i in range(periods)],
+            'y': [100 for _ in range(periods)]
+        })
+        
+        result = {
+            'predictions': [],
+            'status': 'error',
+            'error': 'No valid data available, using default values',
+            'period': period or '12h',
+            'is_simple_prediction': True,
+            'confidence_score': 0.1,  # Very low confidence
+            'best_player_count': 100  # Default player count
+        }
+        
+        # Generate simple predictions
+        predictions = []
+        for i in range(periods):
+            dt = datetime.now() + timedelta(hours=i if frequency == 'H' else i*24)
+            formatted_time = format_time_consistently(dt, frequency)
+            
+            # Ensure prediction values are always positive
+            prediction_value = max(100, np.random.randint(80, 120))
+            
+            predictions.append({
+                'time': formatted_time,
+                'value': prediction_value,
+                'lower': max(1, prediction_value * 0.8),
+                'upper': prediction_value * 1.2
+            })
+        
+        result['predictions'] = predictions
+        return result
+    
+    # Use the core prediction function from the utils module
+    prediction_result = core_generate_predictions(data, periods)
+    
+    # Post-process the results to ensure consistency and no negative values
+    if 'predictions' in prediction_result:
+        for p in prediction_result['predictions']:
+            # Ensure values are positive
+            if 'value' in p:
+                p['value'] = max(0, p['value'])
+            if 'lower' in p:
+                p['lower'] = max(0, p['lower'])
+            if 'upper' in p:
+                p['upper'] = max(0, p['upper'])
+                
+            # Format time consistently
+            if 'ds' in p and isinstance(p['ds'], datetime):
+                p['time'] = format_time_consistently(p['ds'], frequency)
+        
+    return prediction_result
+
+def generate_prediction_chart(predictions_data, title=None):
+    """
+    Generate a chart visualization of the predictions.
+    
+    Args:
+        predictions_data (dict): Prediction data from generate_predictions()
+        title (str, optional): Chart title
+        
+    Returns:
+        bytes: PNG image of the chart
+    """
+    if not has_plotly:
+        app.logger.error("Plotly not installed. Cannot generate chart.")
+        return None
+    
+    # Extract data
+    historical = predictions_data.get('historical', [])
+    predictions = predictions_data.get('predictions', [])
+    
+    # Create arrays for plotting
+    hist_times = [item['time'] for item in historical]
+    hist_values = [item['value'] for item in historical]
+    
+    pred_times = [item['time'] for item in predictions]
+    pred_values = [item['value'] for item in predictions]
+    lower_bounds = [item.get('lower', item['value'] * 0.9) for item in predictions]
+    upper_bounds = [item.get('upper', item['value'] * 1.1) for item in predictions]
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add historical data
+    if historical:
+        fig.add_trace(go.Scatter(
+            x=hist_times,
+            y=hist_values,
+            mode='lines+markers',
+            name='Historical',
+            line=dict(color='blue')
+        ))
+    
+    # Add predictions
+    if predictions:
+        fig.add_trace(go.Scatter(
+            x=pred_times,
+            y=pred_values,
+            mode='lines+markers',
+            name='Predicted',
+            line=dict(color='red')
+        ))
+        
+        # Add prediction interval
+        fig.add_trace(go.Scatter(
+            x=pred_times + pred_times[::-1],  # x, then x reversed
+            y=upper_bounds + lower_bounds[::-1],  # upper, then lower reversed
+            fill='toself',
+            fillcolor='rgba(255,0,0,0.2)',
+            line=dict(color='rgba(255,0,0,0)'),
+            hoverinfo='skip',
+            showlegend=False
+        ))
+    
+    # Set layout
+    chart_title = title if title else "Player Count Forecast"
+    fig.update_layout(
+        title=chart_title,
+        xaxis_title="Time",
+        yaxis_title="Players",
+        legend_title="Legend",
+        hovermode="x unified"
+    )
+    
+    # Convert to PNG
+    img_bytes = pio.to_image(fig, format='png')
+    return img_bytes
+
+@lru_cache(maxsize=32)
+def get_cached_predictions(map_code, period=None):
+    """
+    Get cached predictions or generate new ones.
+    
+    Args:
+        map_code (str): Fortnite map code
+        period (str, optional): Period specifier
+        
+    Returns:
+        dict: Prediction data
+    """
+    cache_key = f"{map_code}:{period if period else 'default'}"
+    
+    # Check if we have a valid cache entry
+    if cache_key in prediction_cache:
+        cache_time, cache_data = prediction_cache[cache_key]
+        if time.time() - cache_time < CACHE_EXPIRY:
+            app.logger.info(f"Using cached predictions for {map_code}")
+            return cache_data
+    
+    # No valid cache, generate new predictions
+    player_data = get_player_data(map_code)
+    if not player_data:
+        return None
+    
+    predictions = generate_predictions(player_data, period)
+    if predictions:
+        # Cache the result
+        prediction_cache[cache_key] = (time.time(), predictions)
+    
+    return predictions
+
+# --- Flask Routes ---
+@app.route('/')
+def index():
+    """Home page with basic instructions"""
+    return jsonify({
+        "service": "Fortnite Player Prediction API",
+        "endpoints": [
+            "/predict/<map_code>",
+            "/predict/<map_code>/<period>",
+            "/predict/chart/<map_code>",
+            "/predict/data/<map_code>"
+        ],
+        "usage": "Replace <map_code> with a valid Fortnite island code. Period can be specified as '12h', '24h', '7d', etc."
+    })
+
+@app.route('/predict/<map_code>')
+def predict_endpoint(map_code):
+    """Generate predictions for a given map code"""
+    # Get compact parameter to control response size
+    compact = request.args.get('compact', 'false').lower() == 'true'
+    
+    predictions = get_cached_predictions(map_code)
+    if not predictions:
+        return jsonify({"error": f"No data available for map code: {map_code}"}), 404
+    
+    # Return compact response if requested
+    if compact:
+        return jsonify({
+            'best_player_count': predictions.get('best_player_count', 100),
+            'confidence_score': predictions.get('confidence_score', 0.5),
+            'period': predictions.get('period', '24h'),
+            'is_simple_prediction': predictions.get('is_simple_prediction', True),
+            'predictions_count': len(predictions.get('predictions', [])),
+            'latest_prediction': predictions.get('predictions', [{}])[-1] if predictions.get('predictions') else {}
+        })
+    
+    return jsonify(predictions)
+
+@app.route('/predict/<map_code>/<period>')
+def predict_period_endpoint(map_code, period):
+    """Generate predictions for a specific period"""
+    # Get compact parameter to control response size
+    compact = request.args.get('compact', 'false').lower() == 'true'
+    
+    predictions = get_cached_predictions(map_code, period)
+    if not predictions:
+        return jsonify({"error": f"No data available for map code: {map_code}"}), 404
+    
+    # Return compact response if requested
+    if compact:
+        return jsonify({
+            'best_player_count': predictions.get('best_player_count', 100),
+            'confidence_score': predictions.get('confidence_score', 0.5),
+            'period': predictions.get('period', period),
+            'is_simple_prediction': predictions.get('is_simple_prediction', True),
+            'predictions_count': len(predictions.get('predictions', [])),
+            'latest_prediction': predictions.get('predictions', [{}])[-1] if predictions.get('predictions') else {}
+        })
+    
+    return jsonify(predictions)
+
+@app.route('/predict/chart/<map_code>')
+def predict_chart_endpoint(map_code):
+    """Generate and return a visualization of predictions"""
+    # Get period from query parameter if provided
+    period = request.args.get('period')
+    title = request.args.get('title')
+    
+    # Get predictions
+    predictions = get_cached_predictions(map_code, period)
+    if not predictions:
+        return jsonify({"error": f"No data available for map code: {map_code}"}), 404
+    
+    # Create chart title
+    if not title:
+        title = f"Player Count Forecast for {map_code}" + (f" ({period})" if period else "")
+    
+    # Generate chart
+    chart_bytes = generate_prediction_chart(predictions, title)
+    if not chart_bytes:
+        return jsonify({"error": "Failed to generate chart"}), 500
+    
+    # Return image
+    return send_file(
+        io.BytesIO(chart_bytes),
+        mimetype='image/png',
+        download_name=f'prediction_{map_code}_{period if period else "default"}.png'
+    )
+
+@app.route('/predict/data/<map_code>')
+def predict_data_endpoint(map_code):
+    """Return raw prediction data for frontend processing"""
+    # Get period from query parameter if provided
+    period = request.args.get('period')
+    include_raw = request.args.get('include_raw', 'false').lower() == 'true'
+    
+    # Optional parameters to control response size
+    compact = request.args.get('compact', 'false').lower() == 'true'
+    predictions_limit = request.args.get('limit')
+    if predictions_limit:
+        try:
+            predictions_limit = int(predictions_limit)
+        except ValueError:
+            predictions_limit = None
+    
+    # Get predictions
+    predictions = get_cached_predictions(map_code, period)
+    if not predictions:
+        return jsonify({"error": f"No data available for map code: {map_code}"}), 404
+    
+    # Return only essential data by default
+    if not include_raw:
+        # Strip raw forecast data to reduce payload size
+        if 'forecast' in predictions:
+            del predictions['forecast']
+    
+    # Create a copy to avoid modifying the cached data
+    response_data = predictions.copy()
+    
+    # Apply predictions limit if specified
+    if predictions_limit and 'predictions' in response_data and len(response_data['predictions']) > predictions_limit:
+        response_data['predictions'] = response_data['predictions'][-predictions_limit:]
+        response_data['truncated'] = True
+    
+    # Further compact the response if requested
+    if compact:
+        compact_data = {
+            'best_player_count': response_data.get('best_player_count', 100),
+            'confidence_score': response_data.get('confidence_score', 0.5),
+            'period': response_data.get('period', period if period else '24h'),
+            'is_simple_prediction': response_data.get('is_simple_prediction', True)
+        }
+        
+        # Include limited predictions data
+        if 'predictions' in response_data:
+            compact_data['predictions'] = response_data['predictions']
+        
+        return jsonify(compact_data)
+    
+    return jsonify(response_data)
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "features": {
+            "advanced_predictions": has_prophet,
+            "chart_generation": has_plotly,
+        }
+    }
+    return jsonify(status)
+
+if __name__ == '__main__':
+    # Use a different port than the analyzer service
+    app.run(debug=True, host='0.0.0.0', port=3000) 

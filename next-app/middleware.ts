@@ -38,27 +38,27 @@ export async function middleware(req: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession();
     
     // Allow access to public routes regardless of authentication status
-    // if (publicRoutes.some(route => pathname === route || pathname === `${route}/`)) {
-    //   // If user is already authenticated and trying to access auth page, redirect to dashboard
-    //   if (session && pathname === '/auth') {
-    //     return NextResponse.redirect(new URL('/dashboard', req.url));
-    //   }
-    //   return res;
-    // }
+    if (publicRoutes.some(route => pathname === route || pathname === `${route}/`)) {
+      // If user is already authenticated and trying to access auth page, redirect to dashboard
+      if (session && pathname === '/auth') {
+        return NextResponse.redirect(new URL('/dashboard', req.url));
+      }
+      return res;
+    }
     
-    // // If user is not authenticated and trying to access a protected route, redirect to auth page
-    // if (!session) {
-    //   // For API routes, return 401 Unauthorized
-    //   if (isApiRoute) {
-    //     return new NextResponse(
-    //       JSON.stringify({ error: 'Unauthorized', message: 'Authentication required' }),
-    //       { status: 401, headers: { 'Content-Type': 'application/json' } }
-    //     );
-    //   }
+    // If user is not authenticated and trying to access a protected route, redirect to auth page
+    if (!session) {
+      // For API routes, return 401 Unauthorized
+      if (isApiRoute) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized', message: 'Authentication required' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       
-    //   // For regular routes, redirect to auth page
-    //   return NextResponse.redirect(new URL('/auth', req.url));
-    // }
+      // For regular routes, redirect to auth page
+      return NextResponse.redirect(new URL('/auth', req.url));
+    }
     
     // User is authenticated and accessing a protected route, allow
     return res;

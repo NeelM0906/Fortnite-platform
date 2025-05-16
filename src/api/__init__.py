@@ -1,5 +1,7 @@
 """
-Fortnite Island Data API Clients
+API Module for Fortnite Analyzer
 
-This package contains API clients for fetching Fortnite island data.
-""" 
+Provides API interfaces for accessing Fortnite Island data.
+"""
+
+from .fortnite_api import get_island_data 

@@ -1,0 +1,333 @@
+{
+  "best_player_count": 24976,
+  "confidence_score": 0.4,
+  "explanations": [
+    "Based on historical data patterns over 25 time periods.",
+    "Average predicted player count is 20796 players per hour.",
+    "Peak predicted player count is 118591 players."
+  ],
+  "historical": [
+    {
+      "is_actual": true,
+      "time": "12 AM",
+      "value": 26169
+    },
+    {
+      "is_actual": true,
+      "time": "12 AM",
+      "value": 10752
+    },
+    {
+      "is_actual": true,
+      "time": "1 AM",
+      "value": 8174
+    },
+    {
+      "is_actual": true,
+      "time": "2 AM",
+      "value": 8039
+    },
+    {
+      "is_actual": true,
+      "time": "3 AM",
+      "value": 8245
+    },
+    {
+      "is_actual": true,
+      "time": "4 AM",
+      "value": 4771
+    },
+    {
+      "is_actual": true,
+      "time": "5 AM",
+      "value": 14
+    },
+    {
+      "is_actual": true,
+      "time": "6 AM",
+      "value": 13
+    },
+    {
+      "is_actual": true,
+      "time": "7 AM",
+      "value": 8077
+    },
+    {
+      "is_actual": true,
+      "time": "8 AM",
+      "value": 10699
+    },
+    {
+      "is_actual": true,
+      "time": "9 AM",
+      "value": 11854
+    },
+    {
+      "is_actual": true,
+      "time": "10 AM",
+      "value": 13587
+    },
+    {
+      "is_actual": true,
+      "time": "11 AM",
+      "value": 20272
+    },
+    {
+      "is_actual": true,
+      "time": "12 PM",
+      "value": 22126
+    },
+    {
+      "is_actual": true,
+      "time": "1 PM",
+      "value": 25993
+    },
+    {
+      "is_actual": true,
+      "time": "2 PM",
+      "value": 26071
+    },
+    {
+      "is_actual": true,
+      "time": "3 PM",
+      "value": 24701
+    },
+    {
+      "is_actual": true,
+      "time": "4 PM",
+      "value": 21518
+    },
+    {
+      "is_actual": true,
+      "time": "5 PM",
+      "value": 25236
+    },
+    {
+      "is_actual": true,
+      "time": "6 PM",
+      "value": 26169
+    },
+    {
+      "is_actual": true,
+      "time": "7 PM",
+      "value": 22307
+    },
+    {
+      "is_actual": true,
+      "time": "8 PM",
+      "value": 22052
+    },
+    {
+      "is_actual": true,
+      "time": "9 PM",
+      "value": 20178
+    },
+    {
+      "is_actual": true,
+      "time": "10 PM",
+      "value": 15516
+    },
+    {
+      "is_actual": true,
+      "time": "11 PM",
+      "value": 11465
+    }
+  ],
+  "is_hourly": true,
+  "is_simple_prediction": false,
+  "period": "24h",
+  "predictions": [
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 6896,
+      "time": "12 AM",
+      "upper": 8428,
+      "value": 8803
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 3034,
+      "time": "1 AM",
+      "upper": 3708,
+      "value": 5799
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -884,
+      "time": "2 AM",
+      "upper": -1080,
+      "value": 2751
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -4716,
+      "time": "3 AM",
+      "upper": -5764,
+      "value": -228
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -8308,
+      "time": "4 AM",
+      "upper": -10154,
+      "value": -3022
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -11502,
+      "time": "5 AM",
+      "upper": -14058,
+      "value": -5506
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -14133,
+      "time": "6 AM",
+      "upper": -17274,
+      "value": -7553
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -16036,
+      "time": "7 AM",
+      "upper": -19600,
+      "value": -9033
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -17049,
+      "time": "8 AM",
+      "upper": -20838,
+      "value": -9821
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -17013,
+      "time": "9 AM",
+      "upper": -20793,
+      "value": -9792
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -15776,
+      "time": "10 AM",
+      "upper": -19282,
+      "value": -8830
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -13199,
+      "time": "11 AM",
+      "upper": -16132,
+      "value": -6826
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -9154,
+      "time": "12 PM",
+      "upper": -11188,
+      "value": -3680
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": -3532,
+      "time": "1 PM",
+      "upper": -4317,
+      "value": 692
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 3759,
+      "time": "2 PM",
+      "upper": 4595,
+      "value": 6363
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 12792,
+      "time": "3 PM",
+      "upper": 15635,
+      "value": 13389
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 23614,
+      "time": "4 PM",
+      "upper": 28862,
+      "value": 21806
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 36249,
+      "time": "5 PM",
+      "upper": 44304,
+      "value": 31633
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 50693,
+      "time": "6 PM",
+      "upper": 61959,
+      "value": 42868
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 66919,
+      "time": "7 PM",
+      "upper": 81790,
+      "value": 55487
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 84867,
+      "time": "8 PM",
+      "upper": 103726,
+      "value": 69447
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 104452,
+      "time": "9 PM",
+      "upper": 127664,
+      "value": 84680
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 125561,
+      "time": "10 PM",
+      "upper": 153464,
+      "value": 101098
+    },
+    {
+      "is_prediction": true,
+      "is_simple_prediction": false,
+      "lower": 148052,
+      "time": "11 PM",
+      "upper": 180953,
+      "value": 118591
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies required for web scraping
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    chromium \
+    chromium-driver \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better layer caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY flask_analyzer_service.py .
+
+# Create output directory
+RUN mkdir -p /app/output
+
+# Expose port
+EXPOSE 5000
+
+# Set Chrome to run in no-sandbox mode for containerized environment
+ENV CRAWL4AI_CHROME_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+
+# Run application
+CMD ["python", "flask_analyzer_service.py"] 

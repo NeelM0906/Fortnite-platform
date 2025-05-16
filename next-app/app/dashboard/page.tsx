@@ -28,34 +28,34 @@ export default function DashboardPage() {
     });
 
   // Check if user is authenticated
-  // useEffect(() => {
-  //   const checkUser = async () => {
-  //     try {
-  //       const { data: { session } } = await supabase.auth.getSession();
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
-  //       if (!session) {
-  //         router.push("/auth");
-  //         return;
-  //       }
+        if (!session) {
+          router.push("/auth");
+          return;
+        }
         
-  //       setUser(session.user);
-  //     } catch (error) {
-  //       console.log('Session check error:', error);
-  //       router.push("/auth");
-  //     }
-  //   };
+        setUser(session.user);
+      } catch (error) {
+        console.log('Session check error:', error);
+        router.push("/auth");
+      }
+    };
     
-  //   // checkUser();
+    checkUser();
     
-  //   // Listen for auth changes
-  //   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-  //     if (event === 'SIGNED_OUT') {
-  //       window.location.href = "/auth";
-  //     }
-  //   });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        window.location.href = "/auth";
+      }
+    });
     
-  //   return () => subscription.unsubscribe();
-  // }, [router]);
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   // Handle sign out
   async function handleSignOut() {

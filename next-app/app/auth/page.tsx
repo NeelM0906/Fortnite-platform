@@ -224,32 +224,6 @@ export default function AuthPage() {
       min-height: 300px;
     }
     
-    .auth-header {
-      margin-bottom: 24px;
-      text-align: center;
-    }
-    
-    .auth-header h1 {
-      margin: 0 0 8px;
-      color: #4285f4;
-      font-size: 1.8rem;
-    }
-    
-    .auth-header p {
-      margin: 0;
-      color: #666;
-      font-size: 16px;
-    }
-    
-    .auth-error {
-      background-color: #fce8e6;
-      color: #d93025;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-    
     .loading-spinner {
       border: 3px solid rgba(0, 0, 0, 0.1);
       border-radius: 50%;
@@ -265,58 +239,15 @@ export default function AuthPage() {
       100% { transform: rotate(360deg); }
     }
     
-    :global(.auth-form-container) {
-      width: 100%;
-    }
-    
-    :global(.auth-button) {
-      width: 100%;
-      padding: 10px;
-      background-color: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    
-    :global(.auth-button:hover) {
-      background-color: #3367d6;
-    }
-    
-    :global(.auth-input) {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
-      transition: border-color 0.2s;
-    }
-    
-    :global(.auth-input:focus) {
-      border-color: #4285f4;
-      outline: none;
-    }
-    
-    :global(.auth-label) {
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: #555;
-    }
-    
-    :global(.auth-message) {
-      font-size: 14px;
-      color: #666;
+    h2 {
+      color: #4285f4;
+      margin-top: 0;
     }
   `}</style>
       </div>
     );
   }
 
-  // Main auth UI
   return (
     <div className="auth-container">
       <div className="auth-card">
@@ -325,157 +256,93 @@ export default function AuthPage() {
           <p>Sign in to access your dashboard</p>
         </div>
         
-      <Auth
-        supabaseClient={supabase}
-          appearance={{ 
-            theme: ThemeSupa,
-            variables: {
-              default: {
-                colors: {
-                  brand: '#4285f4',
-                  brandAccent: '#3367d6',
-                }
-              }
-            },
-            className: {
-              container: 'auth-form-container',
-              button: 'auth-button',
-              input: 'auth-input',
-              label: 'auth-label',
-              message: 'auth-message'
-            }
-          }}
-          providers={['github', 'google']}
-        theme="dark"
-          redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard`}
-          magicLink={true}
-          showLinks={true}
-      />
-        
         {authError && (
-          <div className="mt-4 text-center text-red-500">
+          <div className="auth-error">
             {authError}
           </div>
         )}
+        
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ 
+            theme: ThemeSupa,
+            style: {
+              container: {
+                width: '100%',
+              },
+              button: {
+                borderRadius: '4px',
+                backgroundColor: '#4285f4',
+                color: 'white',
+                fontWeight: '500'
+              },
+              input: {
+                borderRadius: '4px',
+                padding: '10px 12px',
+                fontSize: '16px'
+              },
+              label: {
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#555'
+              },
+              message: {
+                fontSize: '14px',
+                color: '#666'
+              }
+            }
+          }}
+          providers={[]}
+          view="magic_link"
+          redirectTo={`${window.location.origin}/auth`}
+        />
       </div>
       <style jsx>{`
-    .auth-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 24px;
-      background-color: #f5f8ff;
-    }
-    
-    .auth-card {
-      width: 100%;
-      max-width: 420px;
-      background-color: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      padding: 32px;
-      overflow: hidden;
-    }
-    
-    .auth-card.loading,
-    .auth-card.processing {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      min-height: 300px;
-    }
-    
-    .auth-header {
-      margin-bottom: 24px;
-      text-align: center;
-    }
-    
-    .auth-header h1 {
-      margin: 0 0 8px;
-      color: #4285f4;
-      font-size: 1.8rem;
-    }
-    
-    .auth-header p {
-      margin: 0;
-      color: #666;
-      font-size: 16px;
-    }
-    
-    .auth-error {
-      background-color: #fce8e6;
-      color: #d93025;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-    
-    .loading-spinner {
-      border: 3px solid rgba(0, 0, 0, 0.1);
-      border-radius: 50%;
-      border-top: 3px solid #4285f4;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 16px;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    :global(.auth-form-container) {
-      width: 100%;
-    }
-    
-    :global(.auth-button) {
-      width: 100%;
-      padding: 10px;
-      background-color: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    
-    :global(.auth-button:hover) {
-      background-color: #3367d6;
-    }
-    
-    :global(.auth-input) {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
-      transition: border-color 0.2s;
-    }
-    
-    :global(.auth-input:focus) {
-      border-color: #4285f4;
-      outline: none;
-    }
-    
-    :global(.auth-label) {
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: #555;
-    }
-    
-    :global(.auth-message) {
-      font-size: 14px;
-      color: #666;
-    }
-  `}</style>
+        .auth-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 24px;
+          background-color: #f5f8ff;
+        }
+        
+        .auth-card {
+          width: 100%;
+          max-width: 420px;
+          background-color: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          padding: 32px;
+          overflow: hidden;
+        }
+        
+        .auth-header {
+          margin-bottom: 24px;
+          text-align: center;
+        }
+        
+        .auth-header h1 {
+          margin: 0 0 8px;
+          color: #4285f4;
+          font-size: 1.8rem;
+        }
+        
+        .auth-header p {
+          margin: 0;
+          color: #666;
+          font-size: 16px;
+        }
+        
+        .auth-error {
+          background-color: #fce8e6;
+          color: #d93025;
+          padding: 12px 16px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          font-size: 14px;
+        }
+      `}</style>
     </div>
   );
 }

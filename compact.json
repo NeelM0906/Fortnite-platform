@@ -1,0 +1,15 @@
+{
+  "best_player_count": 95994,
+  "confidence_score": 0.4,
+  "is_simple_prediction": false,
+  "latest_prediction": {
+    "is_prediction": true,
+    "is_simple_prediction": false,
+    "lower": 312377,
+    "time": "Jun 15",
+    "upper": 468566,
+    "value": 390472
+  },
+  "period": "30d",
+  "predictions_count": 30
+}
