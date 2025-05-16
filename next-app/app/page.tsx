@@ -22,7 +22,7 @@ export default function Home() {
       }
     };
     
-    checkAuthAndRedirect();
+    // checkAuthAndRedirect();
   }, []);
 
   // Show a simple loading message while checking auth
