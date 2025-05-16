@@ -140,20 +140,20 @@ def preprocess_data(data):
             t = parse_time(row.get('time', ''))
             # Try to find player count values
             try:
-                if 'peak' in row:
+            if 'peak' in row:
                     p = int(str(row.get('peak', '0')).replace(',', '').replace('K', '000').split()[0])
-                elif 'player_count' in row:
+            elif 'player_count' in row:
                     p = int(str(row.get('player_count', '0')).replace(',', '').replace('K', '000').split()[0])
-                else:
-                    # Try to find any numeric value
-                    p = 0
-                    for k, v in row.items():
-                        if isinstance(v, str) and any(c.isdigit() for c in v):
-                            try:
+            else:
+                # Try to find any numeric value
+                p = 0
+                for k, v in row.items():
+                    if isinstance(v, str) and any(c.isdigit() for c in v):
+                        try:
                                 val = int(str(v).replace(',', '').replace('K', '000').split()[0])
-                                p = max(p, val)
-                            except (ValueError, IndexError):
-                                pass
+                            p = max(p, val)
+                        except (ValueError, IndexError):
+                            pass
             except (ValueError, IndexError, TypeError):
                 p = 0
             
@@ -191,19 +191,19 @@ def train_model(df):
         Prophet: Trained Prophet model
     """
     try:
-        # Determine if we're dealing with hourly or daily data
-        is_hourly = False
-        if len(df) >= 2:
-            time_diff = (df['ds'].iloc[1] - df['ds'].iloc[0]).total_seconds()
-            is_hourly = time_diff < 24 * 60 * 60  # Less than a day
-        
-        model = Prophet(
-            daily_seasonality=is_hourly,  # Enable daily seasonality for hourly data
-            weekly_seasonality=not is_hourly,  # Enable weekly seasonality for daily data
-            yearly_seasonality=False,  # Disable yearly seasonality for short-term data
-            seasonality_mode='multiplicative',
-            interval_width=0.80,  # 80% confidence interval (narrower)
-            changepoint_prior_scale=0.01  # Make the model more conservative with trend changes (was 0.05)
+    # Determine if we're dealing with hourly or daily data
+    is_hourly = False
+    if len(df) >= 2:
+        time_diff = (df['ds'].iloc[1] - df['ds'].iloc[0]).total_seconds()
+        is_hourly = time_diff < 24 * 60 * 60  # Less than a day
+    
+    model = Prophet(
+        daily_seasonality=is_hourly,  # Enable daily seasonality for hourly data
+        weekly_seasonality=not is_hourly,  # Enable weekly seasonality for daily data
+        yearly_seasonality=False,  # Disable yearly seasonality for short-term data
+        seasonality_mode='multiplicative',
+        interval_width=0.80,  # 80% confidence interval (narrower)
+        changepoint_prior_scale=0.01  # Make the model more conservative with trend changes (was 0.05)
         )
         
         if is_hourly:
@@ -212,10 +212,10 @@ def train_model(df):
                 name='hourly',
                 period=24,
                 fourier_order=3  # Reduced from 5 for smoother predictions
-            )
-        
-        model.fit(df)
-        return model
+    )
+    
+    model.fit(df)
+    return model
     except Exception as e:
         print(f"Error fitting model: {str(e)}")
         return None
@@ -458,7 +458,7 @@ def generate_predictions(data, periods=12):
                 time_str = row['ds'].strftime('%b %d')
                 
             # Ensure we have integer values to avoid JSON serialization issues
-            predictions.append({
+        predictions.append({
                 'time': time_str,
                 'value': int(row['yhat']),
                 'lower': int(row['yhat_lower']),
@@ -593,14 +593,14 @@ def generate_predictions(data, periods=12):
             print(f"Fallback prediction also failed: {str(fallback_error)}")
             
             # Ultimate fallback - return static synthetic data
-            return {
+        return {
                 'best_player_count': 100,
                 'explanations': [
                     "Error occurred during prediction.",
                     "Using default recommendation of 100 players."
                 ],
                 'confidence_score': 0.4,
-                'is_simple_prediction': True,
+            'is_simple_prediction': True,
                 'is_hourly': True,
                 'warning': f"Prediction failed: {str(e)}. Using default values.",
                 'predictions': [
@@ -614,7 +614,7 @@ def generate_predictions(data, periods=12):
                     }
                 ],
                 'historical': []
-            }
+        }
 
 def main():
     """
