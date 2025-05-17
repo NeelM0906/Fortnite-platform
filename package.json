@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Tools for fetching and visualizing Fortnite island data",
   "dependencies": {
-    "fortnite-api-io": "^1.0.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.5.0",
+    "fortnite-api-io": "^1.9.0"
   }
-} 
+}

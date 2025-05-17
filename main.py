@@ -106,19 +106,19 @@ def run_js_api(map_code):
             env['NODE_PATH'] = node_modules_path
     
     try:
-    result = subprocess.run(['node', script_path, map_code], 
+        result = subprocess.run(['node', script_path, map_code], 
                             capture_output=True, text=True, env=env)
         
-    print(result.stdout)
-    
-    if result.stderr:
-        print("Error output:", result.stderr)
+        print(result.stdout)
         
-    if result.returncode != 0:
-        print(f"JS script failed with exit code: {result.returncode}")
+        if result.stderr:
+            print("Error output:", result.stderr)
+            
+        if result.returncode != 0:
+            print(f"JS script failed with exit code: {result.returncode}")
             return None
-    else:
-        print("JS API call completed successfully.")
+        else:
+            print("JS API call completed successfully.")
             
             # Try to parse the JSON output from the JS script
             try:

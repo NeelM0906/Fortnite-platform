@@ -97,61 +97,61 @@ def show_stats_and_chart(result_file=None):
     # Use safe_load_json from common utilities
     data = safe_load_json(result_file)
     if data is None:
+        sys.exit(1)
+        
+    # If data is a list, get the first item
+    if isinstance(data, list):
+        if len(data) == 0:
+            print(f"No data found in {result_file}. The map code may be invalid or no data is available.")
             sys.exit(1)
+        data = data[0]
+        
+    print('Player Stats:')
+    for stat in data.get('player_stats', []):
+        label = stat.get('stat_label', '').strip()
+        value = stat.get('stat_value', '').strip()
+        print(f'{label}: {value}')
+        
+    table = data.get('table_rows', [])
+    if not table:
+        print('No table_rows data to plot.')
+        sys.exit(1)
+        
+    # Prepare data for table and chart
+    rows = []
+    times, peaks, avgs = [], [], []
+    for row in table:
+        t = row.get('time')
+        p = safe_int(row.get('peak', ''))
+        a = safe_int(row.get('average', ''))
+        if t and p is not None:
+            if a is None:
+                a = 0  # Use 0 for missing average values
+            rows.append([t, p, a])
+            times.append(t)
+            peaks.append(p)
+            avgs.append(a)
             
-        # If data is a list, get the first item
-        if isinstance(data, list):
-            if len(data) == 0:
-                print(f"No data found in {result_file}. The map code may be invalid or no data is available.")
-                sys.exit(1)
-            data = data[0]
+    if not times:
+        print('No valid numeric data to plot.')
+        sys.exit(1)
+        
+    # Print table
+    print('\nTable Data (used for chart):')
+    headers = ['Time', 'Peak', 'Average']
+    if use_tabulate:
+        print(tabulate(rows, headers=headers, tablefmt='github'))
+    else:
+        print(f"{headers[0]:<20} {headers[1]:>10} {headers[2]:>10}")
+        print('-'*42)
+        for r in rows:
+            print(f"{r[0]:<20} {r[1]:>10} {r[2]:>10}")
             
-        print('Player Stats:')
-        for stat in data.get('player_stats', []):
-            label = stat.get('stat_label', '').strip()
-            value = stat.get('stat_value', '').strip()
-            print(f'{label}: {value}')
-            
-        table = data.get('table_rows', [])
-        if not table:
-            print('No table_rows data to plot.')
-            sys.exit(1)
-            
-        # Prepare data for table and chart
-        rows = []
-        times, peaks, avgs = [], [], []
-        for row in table:
-            t = row.get('time')
-            p = safe_int(row.get('peak', ''))
-            a = safe_int(row.get('average', ''))
-            if t and p is not None:
-                if a is None:
-                    a = 0  # Use 0 for missing average values
-                rows.append([t, p, a])
-                times.append(t)
-                peaks.append(p)
-                avgs.append(a)
-                
-        if not times:
-            print('No valid numeric data to plot.')
-            sys.exit(1)
-            
-        # Print table
-        print('\nTable Data (used for chart):')
-        headers = ['Time', 'Peak', 'Average']
-        if use_tabulate:
-            print(tabulate(rows, headers=headers, tablefmt='github'))
-        else:
-            print(f"{headers[0]:<20} {headers[1]:>10} {headers[2]:>10}")
-            print('-'*42)
-            for r in rows:
-                print(f"{r[0]:<20} {r[1]:>10} {r[2]:>10}")
-                
     # Create clean time labels for the x-axis
     cleaned_times = [clean_time_label(t) for t in times]
     
     # Plotly chart with improved layout
-        fig = go.Figure()
+    fig = go.Figure()
     fig.add_trace(go.Scatter(x=cleaned_times, y=peaks, mode='lines+markers', name='Peak', marker=dict(size=8)))
     fig.add_trace(go.Scatter(x=cleaned_times, y=avgs, mode='lines+markers', name='Average', marker=dict(size=8)))
     
@@ -184,10 +184,10 @@ def show_stats_and_chart(result_file=None):
             )
         )
     
-        fig.show()
-        
-        print("\nChart displayed successfully!")
-        return data
+    fig.show()
+    
+    print("\nChart displayed successfully!")
+    return data
 
 if __name__ == '__main__':
     show_stats_and_chart() 

@@ -6,6 +6,9 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 let MAIN_API_URL = null;
 let PREDICTION_API_URL = null;
 
+// Flag to track API discovery status
+let apisDiscovered = false;
+
 // Port ranges to scan for APIs
 const MAIN_API_PORT_RANGE = { start: 5003, end: 5013 };
 const PREDICTION_API_PORT_RANGE = { start: 5004, end: 5014 };
@@ -51,8 +54,19 @@ const authTabContents = document.querySelectorAll('.auth-tab-content');
 const closeModalButtons = document.querySelectorAll('.close-modal');
 
 // Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('App initialized');
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM loaded');
+    
+    // Cache DOM elements
+    const form = document.getElementById('search-form');
+    const mapCodeInput = document.getElementById('map-code');
+    const loading = document.getElementById('loading');
+    const resultsContainer = document.getElementById('results-container');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const apiStatusContainer = document.getElementById('api-status');
+    const apiStatusText = document.getElementById('api-status-text');
+    const exampleLinks = document.querySelectorAll('.example-link');
     
     // Initialize Supabase
     initializeSupabase();
@@ -60,8 +74,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     setupEventListeners();
     
+    // Show API status immediately
+    if (apiStatusContainer) {
+        apiStatusContainer.classList.remove('hidden');
+        if (apiStatusText) {
+            apiStatusText.textContent = 'Connecting...';
+        }
+    }
+    
     // Discover and check API status
-    discoverAPIs();
+    await discoverAPIs();
+    
+    // Update status indicator based on discovery result
+    if (apiStatusContainer && apiStatusText) {
+        if (apisDiscovered) {
+            apiStatusText.textContent = 'Connected';
+            apiStatusContainer.classList.add('api-status-connected');
+        } else {
+            apiStatusText.textContent = 'Disconnected';
+            apiStatusContainer.classList.add('api-status-error');
+        }
+    }
 });
 
 // Initialize Supabase client
@@ -89,6 +122,44 @@ function setupEventListeners() {
     
     // Main app event listeners
     searchForm.addEventListener('submit', handleFormSubmit);
+    
+    // Add retry API connection button listener
+    const retryButton = document.getElementById('retry-api-connection');
+    if (retryButton) {
+        retryButton.addEventListener('click', async function() {
+            // Hide the button while retrying
+            retryButton.classList.add('hidden');
+            
+            // Show connecting status
+            const apiStatusText = document.getElementById('api-status-text');
+            if (apiStatusText) {
+                apiStatusText.textContent = 'Reconnecting...';
+            }
+            
+            const apiStatusContainer = document.getElementById('api-status');
+            if (apiStatusContainer) {
+                apiStatusContainer.classList.remove('api-status-connected', 'api-status-error');
+            }
+            
+            // Attempt to rediscover APIs
+            await discoverAPIs();
+            
+            // Update UI based on result
+            if (apiStatusText) {
+                apiStatusText.textContent = apisDiscovered ? 'Connected' : 'Disconnected';
+            }
+            
+            if (apiStatusContainer) {
+                if (apisDiscovered) {
+                    apiStatusContainer.classList.add('api-status-connected');
+                    retryButton.classList.add('hidden');
+                } else {
+                    apiStatusContainer.classList.add('api-status-error');
+                    retryButton.classList.remove('hidden');
+                }
+            }
+        });
+    }
     
     // Example links
     if (exampleLinks) {
@@ -588,6 +659,12 @@ async function discoverAPIs() {
         // Show loading state
         showLoading();
         
+        // Show retry button if it exists
+        const retryButton = document.getElementById('retry-api-connection');
+        if (retryButton) {
+            retryButton.classList.add('hidden');
+        }
+        
         await Promise.all([
             discoverAPI('main', MAIN_API_PORT_RANGE.start, MAIN_API_PORT_RANGE.end),
             discoverAPI('prediction', PREDICTION_API_PORT_RANGE.start, PREDICTION_API_PORT_RANGE.end)
@@ -595,14 +672,33 @@ async function discoverAPIs() {
         
         if (!MAIN_API_URL || !PREDICTION_API_URL) {
             showError("Could not connect to one or more API services. Please make sure they are running.");
+            apisDiscovered = false;
+            
+            // Show retry button if it exists
+            if (retryButton) {
+                retryButton.classList.remove('hidden');
+            }
         } else {
             console.log('APIs discovered:', MAIN_API_URL, PREDICTION_API_URL);
             hideError();
             hideLoading();
+            apisDiscovered = true;
+            
+            // Hide retry button if it exists
+            if (retryButton) {
+                retryButton.classList.add('hidden');
+            }
         }
     } catch (error) {
         console.error('Error discovering APIs:', error);
         showError("Failed to connect to API services: " + error.message);
+        apisDiscovered = false;
+        
+        // Show retry button if it exists
+        const retryButton = document.getElementById('retry-api-connection');
+        if (retryButton) {
+            retryButton.classList.remove('hidden');
+        }
     }
 }
 
@@ -665,10 +761,10 @@ async function checkAPIStatus() {
 
 // Fetch with better error handling and timeout
 async function fetchWithErrorHandling(url, options = {}) {
-    // Add default timeout if not specified
+    // Increase default timeout to handle longer processing time
     const fetchOptions = {
         ...options,
-        timeout: options.timeout || 8000 // 8 second timeout default
+        timeout: options.timeout || 15000 // 15 second timeout default
     };
     
     try {
@@ -734,6 +830,16 @@ async function handleFormSubmit(e) {
     showLoading();
     
     try {
+        // First ensure APIs are discovered
+        if (!apisDiscovered) {
+            console.log('APIs not yet discovered, attempting discovery...');
+            await discoverAPIs();
+            
+            if (!apisDiscovered) {
+                throw new Error('API services not available. Please refresh the page and try again.');
+            }
+        }
+        
         console.log(`Processing map code: ${mapCode}`);
         
         // First check if analysis exists
@@ -1112,9 +1218,10 @@ function createPlayerChart(tableRows) {
     const peakData = tableRows.map(row => row.peakPlayers);
     const avgData = tableRows.map(row => row.avgPlayers);
     
-    // Destroy previous chart if exists
+    // Destroy previous chart instance if it exists
     if (playerChart) {
         playerChart.destroy();
+        playerChart = null;
     }
     
     // Create new chart
@@ -1145,7 +1252,8 @@ function createPlayerChart(tableRows) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             scales: {
                 x: {
                     grid: {
@@ -1415,9 +1523,10 @@ function createPredictionChart(predictions) {
     // Log data being charted
     console.log('Chart data:', {labels, predictedData, lowerBoundData, upperBoundData});
     
-    // Destroy previous chart if exists
+    // Destroy previous chart instance if it exists
     if (predictionChart) {
         predictionChart.destroy();
+        predictionChart = null;
     }
     
     // Create new chart
@@ -1460,7 +1569,8 @@ function createPredictionChart(predictions) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
             scales: {
                 x: {
                     grid: {
@@ -1520,6 +1630,17 @@ function safeParseInt(value) {
 function resetUI() {
     hideError();
     hideResults();
+    
+    // Clean up any existing charts
+    if (playerChart) {
+        playerChart.destroy();
+        playerChart = null;
+    }
+    
+    if (predictionChart) {
+        predictionChart.destroy();
+        predictionChart = null;
+    }
 }
 
 function showLoading() {

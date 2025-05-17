@@ -458,6 +458,14 @@ th {
   font-size: 0.9rem;
 }
 
+.api-status-connected {
+  border-left-color: #28a745;
+}
+
+.api-status-error {
+  border-left-color: #dc3545;
+}
+
 .troubleshooting {
   background-color: #f8f9fa;
   border-radius: 8px;
@@ -504,4 +512,35 @@ th {
 
 .debug-btn:hover {
     background-color: #e0e0e0;
+}
+
+/* Chart Container Styles */
+.chart-container {
+  position: relative;
+  height: 400px;
+  max-height: 400px;
+  margin-bottom: 30px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Chart Canvas */
+#player-chart, 
+#prediction-chart {
+  max-height: 100%;
+}
+
+.retry-btn {
+  background-color: #5643CC;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-top: 5px;
+}
+
+.retry-btn:hover {
+  background-color: #4835a0;
 } 
