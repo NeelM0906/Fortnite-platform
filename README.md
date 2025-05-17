@@ -1,97 +1,57 @@
 # Fortnite Platform
 
-A web application for analyzing Fortnite Creative Island data and displaying player statistics.
+A tool suite for fetching and visualizing Fortnite island statistics and data.
 
 ## Features
 
-- Fetch and display island metadata from Fortnite API
-- Scrape and visualize player count data
-- Generate interactive charts showing player trends
-- Combine multiple data sources for comprehensive analysis
+- Scrape player statistics from Fortnite islands
+- Generate interactive charts and visualizations of player data
+- Fetch island metadata via the Fortnite API
 
-## Installation
+## Project Structure
 
-### Prerequisites
+```
+Fortnite-platform/
+├── src/
+│   ├── scrapers/        # Web scrapers for collecting data
+│   ├── visualization/   # Data visualization tools
+│   ├── api/             # API clients and wrappers
+│   └── utils/           # Shared utility functions
+├── main.py              # Main application entry point
+├── requirements.txt     # Python dependencies
+└── package.json         # Node.js dependencies
+```
 
-- Python 3.7 or higher
-- Node.js 14 or higher
-- npm or yarn
+## Setup
 
-### Setup
+### Python Dependencies
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/fortnite-platform.git
-   cd fortnite-platform
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-2. Run the start script to install all dependencies and start the services:
-   ```bash
-   ./start.sh
-   ```
+### Node.js Dependencies
 
-   This will:
-   - Create a Python virtual environment
-   - Install all required Python packages including the crawl4ai module if available
-   - Start the Flask API service on port 5003
-   - Start the Next.js app for the frontend
+```bash
+npm install
+```
 
 ## Usage
 
-Once both services are running:
+Run the main application with an optional map code:
 
-1. Access the web application at http://localhost:3000
-2. Enter a Fortnite island code to analyze (e.g., 1234-5678-9012)
-3. View the island details and player statistics
+```bash
+python main.py <map_code>
+```
 
-## Architecture
+If no map code is provided, a default one will be used.
 
-The application consists of two main components:
+## Output
 
-1. **Flask API Service** (port 5003)
-   - Handles data scraping and processing
-   - Generates charts and statistics
-   - Provides JSON data to the frontend
+The application will:
 
-2. **Next.js Frontend** (port 3000)
-   - User interface for the application
-   - Makes API calls to the Flask service
-   - Displays island details and statistics
+1. Scrape player data from the specified Fortnite island
+2. Generate and display an interactive chart
+3. Fetch and display additional island metadata
 
-## Development
-
-### Flask API Service
-
-The Flask service provides these endpoints:
-
-- `/island_info/<map_code>` - Get island metadata
-- `/player_stats/<map_code>` - Get player stats
-- `/full_analysis/<map_code>` - Get complete analysis (metadata + stats)
-- `/chart/<map_code>` - Get a chart image
-
-### Next.js Frontend
-
-The Next.js app includes API routes at:
-
-- `/api/scrape` - Fetches data from the Flask service and JS script
-
-## Dependencies
-
-### Python
-
-- flask
-- flask-cors
-- plotly
-- requests
-- tabulate
-- crawl4ai (custom package for web scraping)
-
-### JavaScript/Node.js
-
-- next.js
-- react
-- axios
-
-## License
-
-MIT
+Output files will be saved to the `output/` directory. 

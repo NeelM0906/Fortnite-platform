@@ -1,12 +1,13 @@
+#!/usr/bin/env python3
 """
 Fortnite Island Data Scraper
 
 Fetches and extracts structured data from a Fortnite island stats page using headless browser automation and CSS-based extraction.
 
 Usage:
-    python player-data-scrap.py <map_code>
+    python -m src.scrapers.player_data_scraper <map_code>
     # or just
-    python player-data-scrap.py
+    python -m src.scrapers.player_data_scraper
     # (then enter the code when prompted)
 
 External dependencies: crawl4ai, json
@@ -16,6 +17,14 @@ import sys
 import os
 import asyncio
 import json
+
+# Ensure Python can find the src module
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
+sys.path.append(project_root)
+
+# Now we can import from src.utils
+from src.utils.common import get_output_dir
 
 # Fix Python path to find system packages if needed
 try:
@@ -175,9 +184,8 @@ def main():
         print("No map code provided. Exiting.")
         return
     
-    # Ensure output directory exists
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
+    # Use the output directory utility
+    output_dir = get_output_dir()
     output_path = os.path.join(output_dir, "result.txt")
     
     target_url = f"https://fortnite.gg/island?code={map_code}"

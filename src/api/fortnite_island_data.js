@@ -5,15 +5,15 @@
  * Accepts a map code as a CLI argument and prints only the requested fields.
  *
  * Usage:
- *   node fortnite_island_data.js <map_code>
+ *   node src/api/fortnite_island_data.js <map_code>
  *   # or just
- *   node fortnite_island_data.js
+ *   node src/api/fortnite_island_data.js
  *   # (then uses default codes)
  *
  * External dependencies: fortnite-api-io (npm)
  */
 
-const FortniteAPI = require("fortnite-api-io");
+const FortniteAPI = require('fortnite-api-io');
 require('dotenv').config();
 
 // --- Configuration ---

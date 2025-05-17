@@ -1,7 +1,17 @@
+# Output data
+output/
+
+# Node.js
+node_modules/
+npm-debug.log
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 ENV/
@@ -31,25 +41,23 @@ wheels/
 .env.test.local
 .env.production.local
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Virtual environment
+venv/
+env/
+ENV/
 
-# Next.js
-.next/
-out/
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Output files
-output/
-result.txt
-predictions.json
-*.log
+# OS generated files
+.DS_Store
+Thumbs.db
 
-# Debug files
-debug-*.png
+# Browser data
+user_data_dir/
 
 # Playwright
 /test-results/
@@ -59,23 +67,13 @@ debug-*.png
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Debug files
+debug-*.png
 
-# Browser data
-user_data_dir/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# Result files
+result.txt
+predictions.json
+*.log
 
 # Image files (if any remain or are generated)
 *.png

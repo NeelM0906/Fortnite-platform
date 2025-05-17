@@ -1,5 +1,3 @@
 """
-Utility Functions
-
-This package contains utility functions used across the project.
+Utility functions shared across the Fortnite Platform application.
 """ 

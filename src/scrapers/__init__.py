@@ -1,5 +1,3 @@
 """
-Fortnite Island Data Scrapers
-
-This package contains web scraping tools for extracting Fortnite island data.
+Scrapers for collecting data from Fortnite-related websites.
 """ 
