@@ -448,14 +448,24 @@ def generate_predictions(data, periods=12):
             try:
                 historical_forecast = forecast[forecast['ds'] <= max_historical_date]
                 y_true = df['y'].values
-                y_pred = historical_forecast['yhat'].values[:len(y_true)]
+                y_pred = historical_forecast['yhat'].values
+                
+                # Make sure the arrays have the same length
+                min_len = min(len(y_true), len(y_pred))
+                y_true = y_true[:min_len]
+                y_pred = y_pred[:min_len]
+                
+                # Add a small epsilon to avoid division by zero
+                epsilon = 1e-10
                 
                 # Calculate mean absolute percentage error
-                mape = np.mean(np.abs((y_true - y_pred) / y_true))
+                mape = np.mean(np.abs((y_true - y_pred) / (y_true + epsilon)))
                 # Convert to a confidence score (1 - mape), capped between 0.4 and 0.95
                 confidence_score = max(0.4, min(0.95, 1 - mape))
             except Exception as e:
                 print(f"Error calculating confidence score: {str(e)}")
+                # Use default confidence score
+                confidence_score = 0.7
         
         # Prepare explanations for the recommended player count
         explanations = []

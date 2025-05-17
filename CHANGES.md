@@ -62,4 +62,56 @@ node fortnite_island_data.js [map_code]
 - Create a more structured package with proper src directory organization
 - Improve error handling and user feedback across all components
 - Add more visualization options for player data
-- Enhance prediction accuracy with additional machine learning models 
+- Enhance prediction accuracy with additional machine learning models
+
+# Recent Changes
+
+## Latest Updates (2023-05-16)
+
+### Bug Fixes & Improvements
+
+1. **Fixed API Port Conflicts**
+   - Added dynamic port detection in API servers
+   - API servers now increment port numbers when there's a conflict
+   - Web frontend now automatically discovers API ports in range
+
+2. **Enhanced Frontend Error Handling**
+   - Added defensive programming for DOM element access
+   - Added helper functions for safely accessing DOM elements
+   - Improved error messages for API connectivity issues
+   - Added timeout handling for API requests
+
+3. **Fixed Data Format Compatibility**
+   - Added support for multiple API response formats
+   - Added legacy data format compatibility
+   - Enhanced handling of both array and object data structures
+   - Created flexible property extraction functions
+
+4. **API Health Status Endpoints**
+   - Added /health endpoints for API discovery
+   - Added /api/status endpoints for app status checks
+   - Improved health check reporting
+
+5. **User Interface Improvements**
+   - Added better error feedback
+   - Fixed prediction chart rendering issues
+   - Fixed player stats display issues
+
+## How to Run
+
+1. Start the web server:
+   ```
+   python -m http.server 8000
+   ```
+
+2. Start the main API:
+   ```
+   python api.py
+   ```
+
+3. Start the prediction API:
+   ```
+   python player_prediction_api.py
+   ```
+
+The platform will automatically handle port conflicts and discover the correct API ports. 

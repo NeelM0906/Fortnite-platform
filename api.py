@@ -23,6 +23,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
 import logging
+import socket
 
 # Import common utilities for accessing project paths
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +36,18 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 # Enable CORS for all routes
 CORS(app)
+
+def find_available_port(start_port=5003, max_attempts=10):
+    """Find an available port starting from start_port"""
+    port = start_port
+    for _ in range(max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', port))
+                return port
+            except OSError:
+                port += 1
+    raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
 
 def run_analysis(map_code):
     """
@@ -164,13 +177,37 @@ def get_analysis(map_code):
     return jsonify(data)
 
 @app.route('/api/health', methods=['GET'])
-def health_check():
+def api_health_check():
     """API endpoint for health check"""
     return jsonify({
         "status": "ok",
         "timestamp": datetime.now().isoformat()
     })
 
+# Add a health check endpoint
+@app.route('/health', methods=['GET'])
+def health_discovery_endpoint():
+    """Health check endpoint for the API discovery process"""
+    return jsonify({
+        'status': 'ok',
+        'type': 'main',
+        'version': '1.0.0'
+    })
+
+# Add a status endpoint
+@app.route('/api/status', methods=['GET'])
+def api_status():
+    """Status endpoint for checking if the API is alive"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'API is running',
+        'timestamp': datetime.now().isoformat()
+    })
+
 if __name__ == '__main__':
-    # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5003) 
+    try:
+        port = find_available_port()
+        print(f"Server starting on port {port}")
+        app.run(debug=True, port=port)
+    except Exception as e:
+        print(f"Error starting server: {e}") 
