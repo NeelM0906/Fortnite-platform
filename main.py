@@ -97,25 +97,52 @@ def run_js_api(map_code):
     # Create a new environment with the NODE_PATH set to include the node_modules
     env = os.environ.copy()
     
-    result = subprocess.run(['node', script_path, map_code], 
-                            capture_output=True, text=True, env=env)
-    print(result.stdout)
+    # Check if node_modules exists; add proper NODE_PATH if it does
+    node_modules_path = os.path.join(PROJECT_ROOT, 'node_modules')
+    if os.path.exists(node_modules_path):
+        if 'NODE_PATH' in env:
+            env['NODE_PATH'] = f"{env['NODE_PATH']}:{node_modules_path}"
+        else:
+            env['NODE_PATH'] = node_modules_path
     
-    if result.stderr:
-        print("Error output:", result.stderr)
+    try:
+        result = subprocess.run(['node', script_path, map_code], 
+                                capture_output=True, text=True, env=env)
         
-    if result.returncode != 0:
-        print(f"JS script failed with exit code: {result.returncode}")
-        return None
-    else:
-        print("JS API call completed successfully.")
+        print(result.stdout)
         
-        # Try to parse the JSON output from the JS script
-        try:
-            return json.loads(result.stdout)
-        except json.JSONDecodeError:
-            print("Warning: Could not parse JSON output from JS API.")
+        if result.stderr:
+            print("Error output:", result.stderr)
+            
+        if result.returncode != 0:
+            print(f"JS script failed with exit code: {result.returncode}")
             return None
+        else:
+            print("JS API call completed successfully.")
+            
+            # Try to parse the JSON output from the JS script
+            try:
+                # Extract only the JSON part from the output
+                stdout_lines = result.stdout.splitlines()
+                json_lines = []
+                for line in stdout_lines:
+                    if line.strip().startswith('{') or line.strip().endswith('}'):
+                        json_lines.append(line)
+                    elif 'Fortnite Island Data Fetcher' in line:
+                        # Skip this line and similar non-JSON lines
+                        continue
+                    elif line.strip():  # If not empty
+                        json_lines.append(line)
+                        
+                json_str = '\n'.join(json_lines)
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                print(f"Warning: Could not parse JSON output from JS API: {e}")
+                print(f"Raw output: {result.stdout}")
+                return None
+    except Exception as e:
+        print(f"Error running JS API: {str(e)}")
+        return None
 
 def save_consolidated_data(map_code, scraped_data, api_data):
     """

@@ -7,6 +7,7 @@ A tool suite for fetching and visualizing Fortnite island statistics and data.
 - Scrape player statistics from Fortnite islands
 - Generate interactive charts and visualizations of player data
 - Fetch island metadata via the Fortnite API
+- Interactive dashboard for exploring island analytics
 
 ## Project Structure
 
@@ -18,6 +19,7 @@ Fortnite-platform/
 │   ├── api/             # API clients and wrappers
 │   └── utils/           # Shared utility functions
 ├── main.py              # Main application entry point
+├── dashboard.py         # Streamlit dashboard for analytics
 ├── requirements.txt     # Python dependencies
 └── package.json         # Node.js dependencies
 ```
@@ -38,6 +40,8 @@ npm install
 
 ## Usage
 
+### Command Line Interface
+
 Run the main application with an optional map code:
 
 ```bash
@@ -45,6 +49,16 @@ python main.py <map_code>
 ```
 
 If no map code is provided, a default one will be used.
+
+### Interactive Dashboard
+
+Launch the interactive dashboard to visualize island data:
+
+```bash
+streamlit run dashboard.py
+```
+
+This will open a web interface where you can enter island codes and explore the data visually. See [DASHBOARD.md](DASHBOARD.md) for detailed usage instructions.
 
 ## Output
 
